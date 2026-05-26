@@ -1,10 +1,18 @@
 import { normalizeColor } from '../canvas/rendering';
 
-export function Tabs({ items, active }: { items: string[]; active: string }) {
+export function Tabs({
+  items,
+  active,
+  onChange
+}: {
+  items: string[];
+  active: string;
+  onChange?: (item: string) => void;
+}) {
   return (
     <div className="tabs">
       {items.map((item) => (
-        <button key={item} className={item === active ? 'active' : ''}>
+        <button key={item} type="button" className={item === active ? 'active' : ''} onClick={() => onChange?.(item)}>
           {item}
         </button>
       ))}
@@ -28,11 +36,11 @@ export function ComponentButton({
   onClick: () => void;
 }) {
   return (
-    <button className="component-button" onClick={onClick}>
-      <span className="component-icon">{icon}</span>
+    <button type="button" className="component-button" onClick={onClick} aria-label={label}>
+      <span className="component-icon" aria-hidden="true">{icon}</span>
       <span>{label}</span>
       {hint && <small>{hint}</small>}
-      <span className="drag-handle">⋮⋮</span>
+      <span className="drag-handle" aria-hidden="true">::</span>
     </button>
   );
 }
@@ -110,4 +118,14 @@ export function Rulers({ width, height, zoom }: { width: number; height: number;
       </div>
     </>
   );
+}
+
+export function StatusNotice({
+  tone,
+  message
+}: {
+  tone: 'success' | 'error' | 'info';
+  message: string;
+}) {
+  return <div className={`status-notice ${tone}`}>{message}</div>;
 }

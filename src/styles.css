@@ -167,13 +167,14 @@ pre {
 }
 
 .toolbar-group button {
-  width: 32px;
+  min-width: 32px;
   height: 32px;
-  padding: 0;
+  padding: 0 8px;
 }
 
 .toolbar-actions {
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .toolbar-actions .primary {
@@ -193,6 +194,12 @@ pre {
   gap: 0;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
+}
+
+.status-banner {
+  padding: 8px 18px 0;
+  background: rgba(10, 16, 24, 0.92);
 }
 
 .sidebar {
@@ -231,6 +238,31 @@ pre {
   color: var(--teal);
   background: rgba(35, 215, 211, 0.08);
   box-shadow: inset 0 -2px 0 var(--teal);
+}
+
+.status-notice {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+}
+
+.status-notice.success {
+  color: #aee9c4;
+  background: rgba(55, 196, 124, 0.08);
+  border-color: rgba(55, 196, 124, 0.3);
+}
+
+.status-notice.error {
+  color: #ffb8b8;
+  background: rgba(255, 102, 102, 0.08);
+  border-color: rgba(255, 102, 102, 0.32);
+}
+
+.status-notice.info {
+  color: #b9ecff;
+  background: rgba(35, 215, 211, 0.08);
+  border-color: rgba(35, 215, 211, 0.3);
 }
 
 .panel-section {
@@ -320,11 +352,19 @@ pre {
   gap: 8px;
 }
 
-.workbench {
+.workbench-shell {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 52px minmax(380px, 1fr) 270px;
+  grid-template-rows: minmax(380px, 1fr) 270px;
+  overflow: hidden;
+}
+
+.canvas-workbench {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 52px minmax(0, 1fr);
   background:
     linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px),
     linear-gradient(0deg, rgba(255,255,255,0.015) 1px, transparent 1px),
@@ -367,6 +407,7 @@ pre {
   display: grid;
   place-items: center;
   overflow: auto;
+  min-height: 0;
   padding: 48px 48px 28px 58px;
 }
 
@@ -431,6 +472,8 @@ pre {
   overflow: hidden;
   border-top: 1px solid var(--line);
   background: #08101a;
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr);
 }
 
 .code-panel-header {
@@ -454,7 +497,7 @@ pre {
 }
 
 .code-panel pre {
-  height: calc(100% - 42px);
+  height: 100%;
   overflow: auto;
   padding: 14px 18px;
   font-size: 12px;
@@ -556,9 +599,8 @@ pre {
     grid-template-columns: 270px minmax(620px, 1fr) 310px;
   }
 
-  .toolbar-actions .ghost:first-child,
-  .toolbar-actions .ghost:nth-child(2) {
-    display: none;
+  .workbench-shell {
+    grid-template-rows: minmax(360px, 1fr) 240px;
   }
 }
 
@@ -575,6 +617,14 @@ pre {
   color: var(--muted);
   font-size: 12px;
   line-height: 1;
+}
+
+.layer-icon-button.text-toggle {
+  width: auto;
+  min-width: 32px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .layer-icon-button:hover {
@@ -626,6 +676,7 @@ pre {
   color: #c7d4e4;
   text-align: left;
   font-weight: 700;
+  flex: 1;
 }
 
 .group-title-button:hover {
@@ -669,6 +720,10 @@ pre {
 
 .validation-panel {
   background: rgba(255, 209, 42, 0.025);
+}
+
+.generated-json {
+  min-height: 0;
 }
 
 .issue-row {

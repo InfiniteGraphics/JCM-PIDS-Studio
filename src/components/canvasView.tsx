@@ -36,7 +36,7 @@ export function CanvasWorkbench({
   onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
 }) {
   return (
-    <section className="workbench">
+    <section className="canvas-workbench">
       <div className="canvas-toolbar">
         <div>
           <strong>Visual Canvas</strong>

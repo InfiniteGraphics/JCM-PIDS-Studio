@@ -30,6 +30,7 @@ export function useEditorStore() {
   const [zoom, setZoom] = useState(4.5);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [history, setHistory] = useState<{ past: PidsProject[]; future: PidsProject[] }>({ past: [], future: [] });
+  const [clipboard, setClipboard] = useState<PidsElement | null>(null);
 
   const runtime = useMemo(() => getMockRuntime(scenario), [scenario]);
   const selected = useMemo(() => project.elements.find((element) => element.id === selectedId) ?? null, [project.elements, selectedId]);
@@ -87,6 +88,15 @@ export function useEditorStore() {
     setSelectedId('destination_template');
   }
 
+  function newProject() {
+    const next = createDefaultProject();
+    commit(next);
+    setSelectedId('destination_template');
+    setScenario('normal');
+    setZoom(4.5);
+    setSnapToGrid(true);
+  }
+
   function updateElement(id: string, patch: Partial<PidsElement>) {
     updateProject((draft) => {
       const index = draft.elements.findIndex((element) => element.id === id);
@@ -101,6 +111,37 @@ export function useEditorStore() {
       const group = draft.groups.find((item) => item.id === id);
       if (group) Object.assign(group, patch);
     });
+  }
+
+  function copySelectedElement() {
+    const source = project.elements.find((element) => element.id === selectedId);
+    if (!source) return false;
+    setClipboard(structuredClone(source));
+    return true;
+  }
+
+  function pasteElement() {
+    const source = clipboard;
+    if (!source) return null;
+
+    const clone = {
+      ...structuredClone(source),
+      id: uid(source.kind),
+      name: `${source.name} Copy`,
+      x: source.x + 2,
+      y: source.y + 2,
+      z: Math.max(0, ...project.elements.filter((element) => element.parentId === source.parentId).map((element) => element.z)) + 1
+    } as PidsElement;
+
+    updateProject((draft) => {
+      draft.elements.push(clone);
+      const group = draft.groups.find((item) => item.id === clone.parentId);
+      if (group && !group.children.includes(clone.id)) {
+        group.children.push(clone.id);
+      }
+    });
+    setSelectedId(clone.id);
+    return clone.id;
   }
 
   function addComponent(kind: 'text' | 'rect' | 'circle' | 'line', parentId = selected?.parentId === 'rowTemplate' ? 'rowTemplate' : 'root') {
@@ -188,6 +229,7 @@ export function useEditorStore() {
   function duplicateElement(elementId: string) {
     const source = project.elements.find((element) => element.id === elementId);
     if (!source) return;
+    setClipboard(structuredClone(source));
     const clone = {
       ...structuredClone(source),
       id: uid(source.kind),
@@ -256,8 +298,10 @@ export function useEditorStore() {
     exportIssues,
     exportSummary,
     history,
+    clipboard,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
+    canPaste: clipboard !== null,
     setSelectedId,
     setScenario,
     setZoom,
@@ -269,10 +313,13 @@ export function useEditorStore() {
     addComponent,
     deleteElement,
     duplicateElement,
+    copySelectedElement,
+    pasteElement,
     reorderZ,
     moveLayer,
     undo,
     redo,
+    newProject,
     resetProject,
     exportZip
   };
