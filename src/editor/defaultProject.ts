@@ -11,7 +11,7 @@ export function safePresetId(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'custom_pids';
 }
 
-const elements: PidsElement[] = [
+const demoElements: PidsElement[] = [
   {
     id: 'bg',
     kind: 'rect',
@@ -32,7 +32,7 @@ const elements: PidsElement[] = [
     kind: 'rect',
     name: 'Header Background',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 0,
     y: 0,
     w: 136,
@@ -46,7 +46,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Station Title',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 18,
     y: 3,
     w: 74,
@@ -67,7 +67,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Clock',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 107,
     y: 3,
     w: 26,
@@ -88,7 +88,7 @@ const elements: PidsElement[] = [
     kind: 'line',
     name: 'Header Divider',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 0,
     y: 14,
     w: 136,
@@ -102,7 +102,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Route Label',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 5,
     y: 17,
     w: 18,
@@ -122,7 +122,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Destination Label',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 28,
     y: 17,
     w: 52,
@@ -142,7 +142,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'ETA Label',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 92,
     y: 17,
     w: 20,
@@ -162,7 +162,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Platform Label',
     visible: true,
-    parentId: 'header',
+    parentId: 'root',
     x: 119,
     y: 17,
     w: 16,
@@ -190,7 +190,13 @@ const elements: PidsElement[] = [
     z: 10,
     fill: '#0c1522',
     opacity: 0.82,
-    condition: 'always'
+    condition: 'always',
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'route_chip_template',
@@ -211,6 +217,13 @@ const elements: PidsElement[] = [
     binding: 'arrival.routeNumber()',
     condition: 'arrival',
     textureId: 'jsblock:textures/block/pids/circle.png'
+    ,
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'destination_template',
@@ -234,6 +247,13 @@ const elements: PidsElement[] = [
     fallback: '--',
     condition: 'arrival',
     font: 'mtr:mtr'
+    ,
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'eta_template',
@@ -255,7 +275,13 @@ const elements: PidsElement[] = [
     align: 'left',
     overflow: 'none',
     fallback: '--',
-    condition: 'arrival'
+    condition: 'arrival',
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'platform_template',
@@ -277,7 +303,13 @@ const elements: PidsElement[] = [
     align: 'right',
     overflow: 'none',
     fallback: '--',
-    condition: 'platformVisible'
+    condition: 'platformVisible',
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'custom_message_bg_template',
@@ -294,7 +326,13 @@ const elements: PidsElement[] = [
     stroke: '#6f7481',
     radius: 1.2,
     opacity: 0.95,
-    condition: 'customMessage'
+    condition: 'customMessage',
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'custom_message_template',
@@ -317,14 +355,20 @@ const elements: PidsElement[] = [
     overflow: 'marquee',
     marqueeDuration: 100,
     fallback: '',
-    condition: 'customMessage'
+    condition: 'customMessage',
+    repeat: {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    }
   },
   {
     id: 'footer_left',
     kind: 'text',
     name: 'Footer Left',
     visible: true,
-    parentId: 'footer',
+    parentId: 'root',
     x: 5,
     y: 71.5,
     w: 60,
@@ -344,7 +388,7 @@ const elements: PidsElement[] = [
     kind: 'text',
     name: 'Footer Right',
     visible: true,
-    parentId: 'footer',
+    parentId: 'root',
     x: 88,
     y: 71.5,
     w: 43,
@@ -365,7 +409,7 @@ export function createDefaultProject(): PidsProject {
   nextId = 1000;
   return {
     schemaVersion: 3,
-    name: 'Untitled PIDS Preset',
+    name: 'Untitled Project',
     preset: 'rv_pids',
     resourceNamespace: 'jsblock',
     scriptPath: 'scripts/pids/custom_pids.js',
@@ -377,8 +421,12 @@ export function createDefaultProject(): PidsProject {
       enabled: true,
       groupId: 'rowTemplate',
       name: 'Arrival Rows',
+      startX: 0,
       startY: 24,
+      rowWidth: 136,
       rowHeight: 12,
+      direction: 'vertical',
+      gap: 0,
       maxRows: 4,
       countSource: 'pids.rows',
       skipHiddenRows: true,
@@ -395,12 +443,55 @@ export function createDefaultProject(): PidsProject {
       zOrderStep: 0.0002
     },
     groups: [
-      { id: 'root', name: 'Root', visible: true, children: ['bg'] },
-      { id: 'header', name: 'Header', visible: true, children: ['header_bg', 'station_title', 'clock', 'divider', 'col_route', 'col_destination', 'col_eta', 'col_platform'] },
-      { id: 'rowTemplate', name: 'Arrival Rows Template', visible: true, children: elements.filter((element) => element.parentId === 'rowTemplate').map((element) => element.id) },
-      { id: 'footer', name: 'Footer', visible: true, children: ['footer_left', 'footer_right'] }
+      {
+        id: 'root',
+        name: 'Layer 1',
+        visible: true,
+        children: []
+      },
+      {
+        id: 'rowTemplate',
+        name: 'Repeat Rows Template',
+        visible: true,
+        children: []
+      }
     ],
     assets: [],
-    elements: JSON.parse(JSON.stringify(elements)) as PidsElement[]
+    guides: [],
+    elements: []
   };
+}
+
+export function createDemoProject(): PidsProject {
+  const project = createDefaultProject();
+  project.name = 'Sample PIDS Layout';
+  project.groups = [
+    {
+      id: 'root',
+      name: 'Layer 1',
+      visible: true,
+      children: demoElements.filter((element) => element.parentId === 'root').map((element) => element.id)
+    },
+    {
+      id: 'rowTemplate',
+      name: 'Repeat Rows Template',
+      visible: true,
+      children: demoElements.filter((element) => element.parentId === 'rowTemplate').map((element) => element.id)
+    }
+  ];
+  project.elements = JSON.parse(JSON.stringify(demoElements)) as PidsElement[];
+  project.elements = project.elements.map((element) =>
+    element.parentId === 'rowTemplate'
+      ? {
+          ...element,
+          repeat: {
+            enabled: true,
+            count: 4,
+            direction: 'vertical',
+            gap: 0
+          }
+        }
+      : element
+  );
+  return project;
 }

@@ -92,21 +92,6 @@ export function TextureAssetsPanel({
   );
 }
 
-export function RepeatRowsInspector({
-  project,
-  onChange
-}: {
-  project: PidsProject;
-  onChange: (patch: Partial<PidsProject['repeatRows']>) => void;
-}) {
-  return (
-    <section className="panel-section inspector-stack">
-      <PanelTitle title="Repeat Rows" />
-      <div className="valid-state">Repeat settings are now edited per component on the selected row-template element.</div>
-    </section>
-  );
-}
-
 export function Inspector({
   element,
   project,
@@ -181,7 +166,7 @@ function RepeatInspector({
     <>
       <PanelTitle title="Repeat" />
       <div className="property-grid two">
-        <NumberInput label="Count" value={repeat.count} onChange={(count) => onChange({ repeat: { ...repeat, count } })} />
+        <NumberInput label="Count" value={repeat.count} step={1} onChange={(count) => onChange({ repeat: { ...repeat, count: Math.max(1, Math.round(count)) } })} />
         <NumberInput label="Gap" value={repeat.gap} onChange={(gap) => onChange({ repeat: { ...repeat, gap } })} />
         <label className="field">
           <span>Direction</span>

@@ -338,7 +338,8 @@ export function useEditorStore() {
             align: 'left',
             overflow: 'none',
             fallback: '--',
-            font: 'mtr:mtr'
+            font: 'mtr:mtr',
+            repeat: parentId === TEMPLATE_GROUP_ID ? { enabled: true, count: 4, direction: 'vertical', gap: 0 } : undefined
           }
         : kind === 'circle'
           ? {
@@ -349,7 +350,8 @@ export function useEditorStore() {
               text: 'A',
               textColor: '#ffffff',
               binding: parentId === TEMPLATE_GROUP_ID ? 'arrival.routeNumber()' : 'static',
-              textureId: 'jsblock:textures/block/pids/circle.png'
+              textureId: 'jsblock:textures/block/pids/circle.png',
+              repeat: parentId === TEMPLATE_GROUP_ID ? { enabled: true, count: 4, direction: 'vertical', gap: 0 } : undefined
             }
             : kind === 'texture'
               ? {
@@ -358,21 +360,24 @@ export function useEditorStore() {
                   textureId: 'jsblock:textures/block/pids/pixel.png',
                   tint: '#ffffff',
                   opacity: 1,
-                  preserveAspectRatio: true
+                  preserveAspectRatio: true,
+                  repeat: parentId === TEMPLATE_GROUP_ID ? { enabled: true, count: 4, direction: 'vertical', gap: 0 } : undefined
                 }
               : kind === 'line'
             ? {
                 ...base,
                 kind: 'line',
                 stroke: '#ffd32a',
-                strokeWidth: 0.8
+                strokeWidth: 0.8,
+                repeat: parentId === TEMPLATE_GROUP_ID ? { enabled: true, count: 4, direction: 'vertical', gap: 0 } : undefined
               }
             : {
                 ...base,
                 kind: 'rect',
                 fill: '#1b2d4a',
                 stroke: '#55708f',
-                radius: 1
+                radius: 1,
+                repeat: parentId === TEMPLATE_GROUP_ID ? { enabled: true, count: 4, direction: 'vertical', gap: 0 } : undefined
               };
 
     updateProject((draft) => {

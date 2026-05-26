@@ -1,6 +1,6 @@
 import type React from 'react';
 import { getRouteFill, resolveElementText } from '../editor/bindings';
-import type { MockRuntime, PidsElement, PidsProject } from '../types';
+import type { GuideLine, MockRuntime, PidsElement, PidsProject } from '../types';
 import { fitPreviewText } from '../canvas/rendering';
 import type { RenderedElement } from '../canvas/rendering';
 import type { ResizeHandle } from '../canvas/resize';
@@ -12,10 +12,13 @@ export function CanvasWorkbench({
   assetUrls,
   scenario,
   zoom,
+  guides,
   renderedElements,
   selectedId,
   onScenarioChange,
   onReset,
+  onClearGuides,
+  onCreateGuide,
   onPointerMove,
   onPointerUp,
   onClearSelection,
@@ -27,10 +30,13 @@ export function CanvasWorkbench({
   assetUrls: Record<string, string>;
   scenario: string;
   zoom: number;
+  guides: GuideLine[];
   renderedElements: RenderedElement[];
   selectedId: string;
   onScenarioChange: (value: string) => void;
   onReset: () => void;
+  onClearGuides: () => void;
+  onCreateGuide: (axis: 'x' | 'y', value: number) => void;
   onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
   onClearSelection: () => void;
@@ -42,7 +48,7 @@ export function CanvasWorkbench({
       <div className="canvas-toolbar">
         <div>
           <strong>Visual Canvas</strong>
-          <span>Repeat Rows preview, resize handles, guides, keyboard nudging</span>
+          <span>Element repeat preview, resize handles, snapping guides, keyboard nudging</span>
         </div>
         <div className="scenario-group">
           <label>Mock Data</label>
@@ -55,6 +61,7 @@ export function CanvasWorkbench({
             <option value="emptyArrivals">Empty arrivals</option>
             <option value="terminating">Terminating</option>
           </select>
+          <button onClick={onClearGuides} disabled={guides.length === 0}>Clear Guides</button>
           <button onClick={onReset}>Reset</button>
         </div>
       </div>
@@ -63,7 +70,7 @@ export function CanvasWorkbench({
         className="canvas-stage"
         style={{ '--canvas-width': `${project.canvas.width * zoom}px`, '--canvas-height': `${project.canvas.height * zoom}px` } as React.CSSProperties}
       >
-        <Rulers width={project.canvas.width} height={project.canvas.height} zoom={zoom} />
+        <Rulers width={project.canvas.width} height={project.canvas.height} zoom={zoom} onCreateGuide={onCreateGuide} />
         <svg
           className="pids-canvas"
           width={project.canvas.width * zoom}
@@ -82,6 +89,13 @@ export function CanvasWorkbench({
           <rect x="0" y="0" width={project.canvas.width} height={project.canvas.height} fill="url(#small-grid)" />
           <line x1={project.canvas.width / 2} x2={project.canvas.width / 2} y1={0} y2={project.canvas.height} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
           <line y1={project.canvas.height / 2} y2={project.canvas.height / 2} x1={0} x2={project.canvas.width} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
+          {guides.map((guide) =>
+            guide.axis === 'x' ? (
+              <line key={guide.id} x1={guide.value} x2={guide.value} y1={0} y2={project.canvas.height} className="guide-line" />
+            ) : (
+              <line key={guide.id} x1={0} x2={project.canvas.width} y1={guide.value} y2={guide.value} className="guide-line" />
+            )
+          )}
           {renderedElements.map((rendered) => (
             <ElementView
               key={rendered.key}
@@ -116,7 +130,7 @@ function ElementView({
 }) {
   const { element, x, y, rowIndex } = rendered;
   const context = { runtime, rowIndex };
-  const isTemplateInstance = typeof rowIndex === 'number' && element.parentId === 'rowTemplate';
+  const isTemplateInstance = typeof rowIndex === 'number' && element.parentId === 'rowTemplate' && Boolean(element.repeat?.enabled);
 
   if (element.kind === 'rect') {
     return (
@@ -132,7 +146,7 @@ function ElementView({
     return (
       <g onPointerDown={onPointerDown} className="canvas-element">
         {assetHref ? (
-          <image href={assetHref} x={x} y={y} width={element.w} height={element.h} opacity={element.opacity ?? 1} preserveAspectRatio="none" />
+          <image href={assetHref} x={x} y={y} width={element.w} height={element.h} opacity={element.opacity ?? 1} preserveAspectRatio="xMidYMid meet" />
         ) : (
           <rect x={x} y={y} width={element.w} height={element.h} fill={element.tint ?? '#ffffff'} stroke="#2ffff8" strokeDasharray="1 1" opacity={element.opacity ?? 1} />
         )}

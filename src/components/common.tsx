@@ -65,16 +65,18 @@ export function TextInput({
 export function NumberInput({
   label,
   value,
-  onChange
+  onChange,
+  step = 0.5
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  step?: number;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input type="number" step="0.5" value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="number" step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   );
 }
@@ -97,19 +99,45 @@ export function ColorInput({
   );
 }
 
-export function Rulers({ width, height, zoom }: { width: number; height: number; zoom: number }) {
+export function Rulers({
+  width,
+  height,
+  zoom,
+  onCreateGuide
+}: {
+  width: number;
+  height: number;
+  zoom: number;
+  onCreateGuide?: (axis: 'x' | 'y', value: number) => void;
+}) {
   const xTicks = [0, 16, 32, 48, 64, 80, 96, 112, 128, width].filter((item, index, arr) => arr.indexOf(item) === index && item <= width);
   const yTicks = [0, 16, 32, 48, 64, height].filter((item, index, arr) => arr.indexOf(item) === index && item <= height);
   return (
     <>
-      <div className="ruler ruler-x" style={{ width: width * zoom }}>
+      <div
+        className="ruler ruler-x"
+        style={{ width: width * zoom }}
+        onPointerDown={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const value = ((event.clientX - rect.left) / zoom);
+          onCreateGuide?.('x', Math.max(0, Math.min(width, value)));
+        }}
+      >
         {xTicks.map((tick) => (
           <span key={tick} style={{ left: tick * zoom }}>
             {tick}
           </span>
         ))}
       </div>
-      <div className="ruler ruler-y" style={{ height: height * zoom }}>
+      <div
+        className="ruler ruler-y"
+        style={{ height: height * zoom }}
+        onPointerDown={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const value = ((event.clientY - rect.top) / zoom);
+          onCreateGuide?.('y', Math.max(0, Math.min(height, value)));
+        }}
+      >
         {yTicks.map((tick) => (
           <span key={tick} style={{ top: tick * zoom }}>
             {tick}
