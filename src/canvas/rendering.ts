@@ -11,46 +11,37 @@ export interface RenderedElement {
 export function getRenderedElements(project: PidsProject, runtime: MockRuntime): RenderedElement[] {
   const groupVisible = new Map(project.groups.map((group) => [group.id, group.visible]));
   const output: RenderedElement[] = [];
+  const templateGroupId = 'rowTemplate';
 
   project.elements
-    .filter((element) => element.visible && groupVisible.get(element.parentId ?? 'root') !== false && element.parentId !== project.repeatRows.groupId)
+    .filter((element) => element.visible && groupVisible.get(element.parentId ?? 'root') !== false && element.parentId !== templateGroupId)
     .sort((a, b) => a.z - b.z)
     .forEach((element) => {
       output.push({ key: element.id, element, x: element.x, y: element.y });
     });
 
-  if (project.repeatRows.enabled && groupVisible.get(project.repeatRows.groupId) !== false) {
-    const rowCount = project.repeatRows.countSource === 'pids.rows' ? Math.min(runtime.rows, project.repeatRows.maxRows) : project.repeatRows.maxRows;
-    const templates = project.elements
-      .filter((element) => element.visible && element.parentId === project.repeatRows.groupId)
-      .sort((a, b) => a.z - b.z);
-
-    let visibleRowIndex = 0;
-    for (let i = 0; i < rowCount; i += 1) {
-      const hidden = runtime.hiddenRows.includes(i);
-      if (project.behavior.respectHideArrival && project.repeatRows.skipHiddenRows && hidden) continue;
-
-      const customMessage = runtime.customMessages[i] || '';
-      const arrival = runtime.arrivals[i] ?? null;
-      if (!arrival && project.repeatRows.collapseEmptyRows && !customMessage) continue;
-
-      const rowY = project.repeatRows.startY + visibleRowIndex * project.repeatRows.rowHeight;
-      const replaceWithCustom = Boolean(customMessage && project.behavior.respectCustomMessage && project.repeatRows.customMessageMode === 'replace-row');
-
-      templates.forEach((element) => {
-        if (replaceWithCustom && element.condition !== 'customMessage') return;
-        if (!replaceWithCustom) {
-          if (element.condition === 'customMessage' && !(customMessage && project.repeatRows.customMessageMode === 'overlay')) return;
-          if (element.condition === 'arrival' && !arrival && !project.repeatRows.showFallbackWhenEmpty) return;
-          if (element.condition === 'platformVisible' && project.behavior.respectHidePlatformNumber && runtime.hidePlatformNumber) return;
-          if (element.condition === 'platformVisible' && !arrival && !project.repeatRows.showFallbackWhenEmpty) return;
-        }
-        output.push({ key: `${element.id}:${i}`, element, rowIndex: i, x: element.x, y: rowY + element.y });
-      });
-
-      visibleRowIndex += 1;
-    }
-  }
+  project.elements
+    .filter((element) => element.visible && element.parentId === templateGroupId && element.repeat?.enabled)
+    .sort((a, b) => a.z - b.z)
+    .forEach((element) => {
+      const repeat = element.repeat!;
+      for (let rowIndex = 0; rowIndex < repeat.count; rowIndex += 1) {
+        const hidden = runtime.hiddenRows.includes(rowIndex);
+        if (project.behavior.respectHideArrival && hidden) continue;
+        const customMessage = runtime.customMessages[rowIndex] || '';
+        const arrival = runtime.arrivals[rowIndex] ?? null;
+        if (!arrival && !customMessage) continue;
+        const stepX = repeat.direction === 'horizontal' ? element.w + repeat.gap : 0;
+        const stepY = repeat.direction === 'vertical' ? element.h + repeat.gap : 0;
+        output.push({
+          key: `${element.id}:${rowIndex}`,
+          element,
+          rowIndex,
+          x: element.x + rowIndex * stepX,
+          y: element.y + rowIndex * stepY
+        });
+      }
+    });
 
   return output;
 }

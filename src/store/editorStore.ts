@@ -10,13 +10,23 @@ import type {
   MockScenario,
   PidsElement,
   PidsProject,
-  TextureAsset
+  TextureAsset,
+  TextureAssetUpdate
 } from '../types';
 
 const STORAGE_KEY = 'js-pids-visual-editor-mvp-project-v4';
 export const DEFAULT_CANVAS_ZOOM = 8;
 export const MIN_CANVAS_ZOOM = 2;
 export const MAX_CANVAS_ZOOM = 16;
+const TEMPLATE_GROUP_ID = 'rowTemplate';
+
+function roundDimension(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
+function defaultGroupId(project: PidsProject) {
+  return project.groups.find((group) => group.id !== TEMPLATE_GROUP_ID)?.id ?? 'root';
+}
 
 function loadInitialProject() {
   try {
@@ -29,13 +39,16 @@ function loadInitialProject() {
 }
 
 export function useEditorStore() {
-  const [project, setProject] = useState<PidsProject>(() => loadInitialProject());
-  const [selectedId, setSelectedId] = useState<string>('destination_template');
+  const initialProject = useMemo(() => loadInitialProject(), []);
+  const [project, setProject] = useState<PidsProject>(initialProject);
+  const [analysisProject, setAnalysisProject] = useState<PidsProject>(initialProject);
+  const [selectedId, setSelectedId] = useState<string>(initialProject.elements[0]?.id ?? '');
   const [scenario, setScenario] = useState<MockScenario>('normal');
   const [zoom, setZoom] = useState(DEFAULT_CANVAS_ZOOM);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [history, setHistory] = useState<{ past: PidsProject[]; future: PidsProject[] }>({ past: [], future: [] });
   const [clipboard, setClipboard] = useState<PidsElement | null>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
   const projectRef = useRef(project);
   const interactionRef = useRef<{ before: PidsProject; changed: boolean } | null>(null);
 
@@ -45,23 +58,31 @@ export function useEditorStore() {
 
   const runtime = useMemo(() => getMockRuntime(scenario), [scenario]);
   const selected = useMemo(() => project.elements.find((element) => element.id === selectedId) ?? null, [project.elements, selectedId]);
-  const artifacts = useMemo(() => generateArtifacts(project), [project]);
-  const manifest = useMemo(() => buildResourcePackManifest(project), [project]);
-  const validationIssues = useMemo(() => validateProject(project), [project]);
-  const compatibilityIssues = useMemo(() => checkJcmCompatibility(project, artifacts.script, manifest), [project, artifacts.script, manifest]);
+  const artifacts = useMemo(() => generateArtifacts(analysisProject), [analysisProject]);
+  const manifest = useMemo(() => buildResourcePackManifest(analysisProject), [analysisProject]);
+  const validationIssues = useMemo(() => validateProject(analysisProject), [analysisProject]);
+  const compatibilityIssues = useMemo(
+    () => checkJcmCompatibility(analysisProject, artifacts.script, manifest),
+    [analysisProject, artifacts.script, manifest]
+  );
   const exportIssues = useMemo(() => [...validationIssues, ...compatibilityIssues], [validationIssues, compatibilityIssues]);
   const exportSummary = useMemo(() => issueSummary(exportIssues), [exportIssues]);
 
   function persistProject(next: PidsProject) {
-    projectRef.current = next;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function applyCommittedProject(next: PidsProject) {
+    projectRef.current = next;
+    setProject(next);
+    setAnalysisProject(next);
+    persistProject(next);
   }
 
   function commit(next: PidsProject) {
     const currentProject = projectRef.current;
     setHistory((current) => ({ past: [...current.past, structuredClone(currentProject)], future: [] }));
-    setProject(next);
-    persistProject(next);
+    applyCommittedProject(next);
   }
 
   function updateProject(updater: (draft: PidsProject) => void) {
@@ -70,14 +91,12 @@ export function useEditorStore() {
     commit(draft);
   }
 
-  function updateProjectLive(updater: (draft: PidsProject) => void) {
-    const draft = structuredClone(projectRef.current);
-    updater(draft);
+  function replaceProjectLive(next: PidsProject) {
+    projectRef.current = next;
     if (interactionRef.current) {
       interactionRef.current.changed = true;
     }
-    setProject(draft);
-    persistProject(draft);
+    setProject(next);
   }
 
   function setWholeProject(nextProject: PidsProject, nextSelectedId?: string) {
@@ -91,8 +110,7 @@ export function useEditorStore() {
       if (!previous) return current;
       const nextPast = current.past.slice(0, -1);
       const nextFuture = [structuredClone(projectRef.current), ...current.future];
-      setProject(previous);
-      persistProject(previous);
+      applyCommittedProject(previous);
       return { past: nextPast, future: nextFuture };
     });
   }
@@ -103,8 +121,7 @@ export function useEditorStore() {
       if (!next) return current;
       const nextFuture = current.future.slice(1);
       const nextPast = [...current.past, structuredClone(projectRef.current)];
-      setProject(next);
-      persistProject(next);
+      applyCommittedProject(next);
       return { past: nextPast, future: nextFuture };
     });
   }
@@ -112,13 +129,13 @@ export function useEditorStore() {
   function resetProject() {
     const next = createDefaultProject();
     commit(next);
-    setSelectedId('destination_template');
+    setSelectedId('');
   }
 
   function newProject() {
     const next = createDefaultProject();
     commit(next);
-    setSelectedId('destination_template');
+    setSelectedId('');
     setScenario('normal');
     setZoom(DEFAULT_CANVAS_ZOOM);
     setSnapToGrid(true);
@@ -126,6 +143,7 @@ export function useEditorStore() {
 
   function beginInteraction() {
     if (interactionRef.current) return;
+    setIsInteracting(true);
     interactionRef.current = {
       before: structuredClone(projectRef.current),
       changed: false
@@ -135,12 +153,16 @@ export function useEditorStore() {
   function endInteraction() {
     const interaction = interactionRef.current;
     interactionRef.current = null;
+    setIsInteracting(false);
     if (!interaction || !interaction.changed) return;
 
+    const next = projectRef.current;
     setHistory((current) => ({
       past: [...current.past, interaction.before],
       future: []
     }));
+    setAnalysisProject(next);
+    persistProject(next);
   }
 
   function updateElement(id: string, patch: Partial<PidsElement>) {
@@ -153,11 +175,25 @@ export function useEditorStore() {
   }
 
   function updateElementLive(id: string, patch: Partial<PidsElement>) {
-    updateProjectLive((draft) => {
-      const index = draft.elements.findIndex((element) => element.id === id);
-      if (index >= 0) {
-        draft.elements[index] = { ...draft.elements[index], ...patch } as PidsElement;
+    const currentProject = projectRef.current;
+    const index = currentProject.elements.findIndex((element) => element.id === id);
+    if (index < 0) return;
+
+    const currentElement = currentProject.elements[index];
+    let changed = false;
+    for (const [key, value] of Object.entries(patch)) {
+      if ((currentElement as unknown as Record<string, unknown>)[key] !== value) {
+        changed = true;
+        break;
       }
+    }
+    if (!changed) return;
+
+    const nextElements = currentProject.elements.slice();
+    nextElements[index] = { ...currentElement, ...patch } as PidsElement;
+    replaceProjectLive({
+      ...currentProject,
+      elements: nextElements
     });
   }
 
@@ -165,6 +201,70 @@ export function useEditorStore() {
     updateProject((draft) => {
       const group = draft.groups.find((item) => item.id === id);
       if (group) Object.assign(group, patch);
+    });
+  }
+
+  function addGroup() {
+    const nextId = uid('group');
+    updateProject((draft) => {
+      const insertIndex = draft.groups.findIndex((group) => group.id === TEMPLATE_GROUP_ID);
+      draft.groups.splice(insertIndex >= 0 ? insertIndex : draft.groups.length, 0, {
+        id: nextId,
+        name: `Layer ${draft.groups.filter((group) => group.id !== TEMPLATE_GROUP_ID).length + 1}`,
+        visible: true,
+        expanded: true,
+        children: []
+      });
+    });
+    setSelectedId('');
+  }
+
+  function renameGroup(id: string, name: string) {
+    updateProject((draft) => {
+      const group = draft.groups.find((item) => item.id === id);
+      if (!group) return;
+      const nextName = name.trim();
+      if (!nextName) return;
+      group.name = nextName;
+    });
+  }
+
+  function deleteGroup(id: string) {
+    updateProject((draft) => {
+      const target = draft.groups.find((group) => group.id === id);
+      if (!target) return;
+      const fallbackId = draft.groups.find((group) => group.id !== id)?.id;
+      if (!fallbackId) return;
+
+      draft.elements = draft.elements.map((element) =>
+        element.parentId === id ? { ...element, parentId: fallbackId } as PidsElement : element
+      );
+      draft.groups = draft.groups.filter((group) => group.id !== id);
+      draft.groups.forEach((group) => {
+        if (group.id === fallbackId) {
+          group.children = [
+            ...group.children,
+            ...target.children.filter((childId) => !group.children.includes(childId))
+          ];
+          return;
+        }
+        group.children = group.children.filter((childId) => !target.children.includes(childId));
+      });
+    });
+  }
+
+  function moveElementToGroup(elementId: string, groupId: string) {
+    updateProject((draft) => {
+      const targetGroup = draft.groups.find((group) => group.id === groupId);
+      const element = draft.elements.find((item) => item.id === elementId);
+      if (!targetGroup || !element) return;
+      if (element.parentId === groupId) return;
+
+      draft.groups.forEach((group) => {
+        group.children = group.children.filter((childId) => childId !== elementId);
+      });
+      targetGroup.children.push(elementId);
+      element.parentId = groupId;
     });
   }
 
@@ -199,7 +299,10 @@ export function useEditorStore() {
     return clone.id;
   }
 
-  function addComponent(kind: 'text' | 'rect' | 'texture' | 'circle' | 'line', parentId = selected?.parentId === 'rowTemplate' ? 'rowTemplate' : 'root') {
+  function addComponent(
+    kind: 'text' | 'rect' | 'texture' | 'circle' | 'line',
+    parentId = selected?.parentId ?? defaultGroupId(project)
+  ) {
     const base = {
       id: uid(kind),
       name:
@@ -214,12 +317,12 @@ export function useEditorStore() {
               : 'New Rect',
       visible: true,
       parentId,
-      x: parentId === 'rowTemplate' ? 28 : 12,
-      y: parentId === 'rowTemplate' ? 0 : 12,
+      x: parentId === TEMPLATE_GROUP_ID ? 28 : 12,
+      y: parentId === TEMPLATE_GROUP_ID ? 0 : 12,
       w: kind === 'circle' ? 9 : kind === 'line' ? 24 : 32,
       h: kind === 'circle' ? 9 : kind === 'line' ? 0 : 8,
       z: Math.max(0, ...project.elements.map((element) => element.z)) + 1,
-      condition: (parentId === 'rowTemplate' ? 'arrival' : 'always') as ElementCondition
+      condition: (parentId === TEMPLATE_GROUP_ID ? 'arrival' : 'always') as ElementCondition
     };
 
     const element: PidsElement =
@@ -227,8 +330,8 @@ export function useEditorStore() {
         ? {
             ...base,
             kind: 'text',
-            text: parentId === 'rowTemplate' ? 'New Row Text' : 'New Text',
-            binding: parentId === 'rowTemplate' ? 'arrival.destination()' : 'static',
+            text: parentId === TEMPLATE_GROUP_ID ? 'New Row Text' : 'New Text',
+            binding: parentId === TEMPLATE_GROUP_ID ? 'arrival.destination()' : 'static',
             color: '#ffffff',
             fontSize: 5,
             fontWeight: 'bold',
@@ -245,7 +348,7 @@ export function useEditorStore() {
               stroke: '#ffffff',
               text: 'A',
               textColor: '#ffffff',
-              binding: parentId === 'rowTemplate' ? 'arrival.routeNumber()' : 'static',
+              binding: parentId === TEMPLATE_GROUP_ID ? 'arrival.routeNumber()' : 'static',
               textureId: 'jsblock:textures/block/pids/circle.png'
             }
             : kind === 'texture'
@@ -254,7 +357,8 @@ export function useEditorStore() {
                   kind: 'texture',
                   textureId: 'jsblock:textures/block/pids/pixel.png',
                   tint: '#ffffff',
-                  opacity: 1
+                  opacity: 1,
+                  preserveAspectRatio: true
                 }
               : kind === 'line'
             ? {
@@ -360,10 +464,51 @@ export function useEditorStore() {
       if (!removed) return;
       draft.elements = draft.elements.map((element) => {
         if (element.kind === 'texture' && element.assetId === assetId) {
-          return { ...element, assetId: undefined, textureId: 'jsblock:textures/block/pids/pixel.png' };
+          return { ...element, assetId: undefined, textureId: 'jsblock:textures/block/pids/pixel.png' } as PidsElement;
         }
         return element;
       });
+    });
+  }
+
+  function updateAsset(assetId: string, patch: TextureAssetUpdate) {
+    updateProject((draft) => {
+      const index = draft.assets.findIndex((asset) => asset.id === assetId);
+      if (index < 0) return;
+      const current = draft.assets[index];
+      const next: TextureAsset = {
+        ...current,
+        ...patch,
+        textureId: patch.textureId ?? current.textureId
+      };
+      draft.assets[index] = next;
+
+      if (patch.textureId && patch.textureId !== current.textureId) {
+        draft.elements = draft.elements.map((element) => {
+          if (element.kind === 'texture' && element.assetId === assetId) {
+            return { ...element, textureId: patch.textureId } as PidsElement;
+          }
+          return element;
+        });
+      }
+    });
+  }
+
+  function updateTextureElementAsset(elementId: string, assetId: string | undefined) {
+    updateProject((draft) => {
+      const element = draft.elements.find((item) => item.id === elementId);
+      if (!element || element.kind !== 'texture') return;
+      if (!assetId) {
+        element.assetId = undefined;
+        element.preserveAspectRatio = false;
+        return;
+      }
+      const asset = draft.assets.find((item) => item.id === assetId);
+      if (!asset || asset.width <= 0 || asset.height <= 0) return;
+      element.assetId = asset.id;
+      element.textureId = asset.textureId;
+      element.preserveAspectRatio = true;
+      element.h = Math.max(0.5, roundDimension(element.w / (asset.width / asset.height)));
     });
   }
 
@@ -383,6 +528,7 @@ export function useEditorStore() {
     exportSummary,
     history,
     clipboard,
+    isInteracting,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
     canPaste: clipboard !== null,
@@ -397,8 +543,14 @@ export function useEditorStore() {
     updateElement,
     updateElementLive,
     updateGroup,
+    addGroup,
+    renameGroup,
+    deleteGroup,
+    moveElementToGroup,
     addComponent,
     addAsset,
+    updateAsset,
+    updateTextureElementAsset,
     removeAsset,
     deleteElement,
     duplicateElement,

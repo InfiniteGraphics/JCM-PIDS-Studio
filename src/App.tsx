@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CanvasWorkbench } from './components/canvasView';
 import { LeftSidebar, SCENARIOS, TopToolbar } from './components/layout';
 import { StatusNotice, Tabs } from './components/common';
-import { Inspector, ProjectInspector, RepeatRowsInspector, ValidationPanel } from './components/panels';
+import { Inspector, ProjectInspector, TextureAssetsPanel, ValidationPanel } from './components/panels';
 import { clamp, getRenderedElements, round } from './canvas/rendering';
 import { resizeFromHandle, type ResizeHandle } from './canvas/resize';
 import { safePresetId, uid } from './editor/defaultProject';
@@ -12,17 +12,20 @@ import { DEFAULT_CANVAS_ZOOM, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, useEditorStore }
 import type { PidsElement, TextureAsset } from './types';
 
 const GRID_SIZE = 0.5;
+const SNAP_THRESHOLD = 1.5;
 
 export default function App() {
   const store = useEditorStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textureInputRef = useRef<HTMLInputElement | null>(null);
   const [leftTab, setLeftTab] = useState<'Components' | 'Layers'>('Components');
-  const [rightTab, setRightTab] = useState<'Properties' | 'Bindings' | 'Style'>('Properties');
+  const [rightTab, setRightTab] = useState<'Properties' | 'Bindings' | 'Style' | 'Texture Assets'>('Properties');
   const [dragLayerId, setDragLayerId] = useState<string | null>(null);
+  const [targetGroupId, setTargetGroupId] = useState<string>('root');
   const [dragState, setDragState] = useState<{ id: string; rowIndex?: number; offsetX: number; offsetY: number } | null>(null);
   const [resizeState, setResizeState] = useState<{ id: string; rowIndex?: number; handle: ResizeHandle; startX: number; startY: number; start: PidsElement } | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const templateGroupId = 'rowTemplate';
 
   const renderedElements = useMemo(() => getRenderedElements(store.project, store.runtime), [store.project, store.runtime]);
   const validationSummary = useMemo(() => issueSummary(store.validationIssues), [store.validationIssues]);
@@ -36,12 +39,24 @@ export default function App() {
   );
 
   useEffect(() => {
+    const globalGroups = store.project.groups.filter((group) => group.id !== templateGroupId);
+    const selectedGroup = store.selected?.parentId;
+    if (selectedGroup && globalGroups.some((group) => group.id === selectedGroup)) {
+      setTargetGroupId(selectedGroup);
+      return;
+    }
+    if (!globalGroups.some((group) => group.id === targetGroupId)) {
+      setTargetGroupId(globalGroups[0]?.id ?? 'root');
+    }
+  }, [store.project.groups, store.selected, targetGroupId]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const isTyping = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || target?.isContentEditable;
       if (isTyping) return;
 
-      if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId && store.selectedId !== '__repeatRows') {
+      if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
         event.preventDefault();
         store.deleteElement(store.selectedId);
       }
@@ -146,18 +161,28 @@ export default function App() {
         setStatusMessage({ tone: 'error', text: 'PNG 读取失败。' });
         return;
       }
-      const baseName = file.name.replace(/\.png$/i, '');
-      const safeName = safePresetId(baseName);
-      const asset: TextureAsset = {
-        id: uid('asset'),
-        name: baseName,
-        textureId: `${store.project.resourceNamespace}:textures/imported/${safeName}.png`,
-        zipPath: `assets/${store.project.resourceNamespace}/textures/imported/${safeName}.png`,
-        mimeType: 'image/png',
-        dataBase64: raw.slice(index + prefix.length)
+
+      const image = new Image();
+      image.onload = () => {
+        const baseName = file.name.replace(/\.png$/i, '');
+        const safeName = safePresetId(baseName);
+        const asset: TextureAsset = {
+          id: uid('asset'),
+          name: baseName,
+          textureId: `${store.project.resourceNamespace}:textures/imported/${safeName}.png`,
+          zipPath: `assets/${store.project.resourceNamespace}/textures/imported/${safeName}.png`,
+          mimeType: 'image/png',
+          dataBase64: raw.slice(index + prefix.length),
+          width: image.naturalWidth,
+          height: image.naturalHeight
+        };
+        store.addAsset(asset);
+        setStatusMessage({ tone: 'success', text: `已导入图片：${file.name}` });
       };
-      store.addAsset(asset);
-      setStatusMessage({ tone: 'success', text: `已导入图片：${file.name}` });
+      image.onerror = () => {
+        setStatusMessage({ tone: 'error', text: 'PNG 尺寸读取失败。' });
+      };
+      image.src = raw;
     };
     reader.readAsDataURL(file);
   }
@@ -176,19 +201,89 @@ export default function App() {
     return store.snapToGrid ? Math.round(value / GRID_SIZE) * GRID_SIZE : round(value);
   }
 
+  function collectSnapTargets(excludeId?: string) {
+    const xTargets = new Set<number>([0, store.project.canvas.width / 2, store.project.canvas.width]);
+    const yTargets = new Set<number>([0, store.project.canvas.height / 2, store.project.canvas.height]);
+
+    store.project.guides.forEach((guide) => {
+      if (guide.axis === 'x') xTargets.add(guide.value);
+      else yTargets.add(guide.value);
+    });
+
+    store.project.elements
+      .filter((element) => element.id !== excludeId && element.parentId !== templateGroupId)
+      .forEach((element) => {
+        xTargets.add(element.x);
+        xTargets.add(element.x + element.w / 2);
+        xTargets.add(element.x + element.w);
+        yTargets.add(element.y);
+        yTargets.add(element.y + element.h / 2);
+        yTargets.add(element.y + element.h);
+      });
+
+    return {
+      x: Array.from(xTargets),
+      y: Array.from(yTargets)
+    };
+  }
+
+  function alignAxis(start: number, size: number, targets: number[]) {
+    const anchors = [
+      { kind: 'start' as const, value: start },
+      { kind: 'center' as const, value: start + size / 2 },
+      { kind: 'end' as const, value: start + size }
+    ];
+    let best: { value: number; delta: number } | null = null;
+
+    for (const anchor of anchors) {
+      for (const target of targets) {
+        const delta = target - anchor.value;
+        if (Math.abs(delta) > SNAP_THRESHOLD) continue;
+        if (!best || Math.abs(delta) < Math.abs(best.delta)) {
+          best = {
+            value: round(start + delta),
+            delta
+          };
+        }
+      }
+    }
+
+    return best ? best.value : round(start);
+  }
+
+  function snapElementPosition(element: PidsElement, nextX: number, nextY: number) {
+    const gridX = clamp(snap(nextX), 0, store.project.canvas.width);
+    const gridY = round(nextY);
+    const targets = collectSnapTargets(element.id);
+    const alignedX = alignAxis(gridX, element.w, targets.x);
+    const alignedY = alignAxis(gridY, element.h, targets.y);
+
+    return {
+      x: clamp(alignedX, 0, store.project.canvas.width),
+      y: alignedY
+    };
+  }
+
   function onCanvasPointerMove(event: React.PointerEvent<SVGSVGElement>) {
     const point = pointerToCanvas(event);
     if (dragState) {
       const element = store.project.elements.find((item) => item.id === dragState.id);
       if (!element) return;
+      const repeat = element.repeat;
       const rowOffset =
-        element.parentId === store.project.repeatRows.groupId && typeof dragState.rowIndex === 'number'
-          ? store.project.repeatRows.startY + dragState.rowIndex * store.project.repeatRows.rowHeight
-          : 0;
+        element.parentId === templateGroupId && repeat && typeof dragState.rowIndex === 'number'
+          ? {
+              x: dragState.rowIndex * (repeat.direction === 'horizontal' ? element.w + repeat.gap : 0),
+              y: dragState.rowIndex * (repeat.direction === 'vertical' ? element.h + repeat.gap : 0)
+            }
+          : { x: 0, y: 0 };
+      const nextBaseX = point.x - dragState.offsetX - rowOffset.x;
+      const nextBaseY = point.y - dragState.offsetY - rowOffset.y;
+      const snapped = snapElementPosition(element, nextBaseX, nextBaseY);
 
       store.updateElementLive(dragState.id, {
-        x: clamp(snap(point.x - dragState.offsetX), 0, store.project.canvas.width),
-        y: snap(point.y - dragState.offsetY - rowOffset)
+        x: snapped.x,
+        y: snapped.y
       } as Partial<PidsElement>);
     }
 
@@ -231,14 +326,6 @@ export default function App() {
         canUndo={store.canUndo}
         canRedo={store.canRedo}
         canPaste={store.canPaste}
-        onPresetChange={(preset) =>
-          store.updateProject((draft) => {
-            draft.preset = preset;
-            if (preset === 'lcd_pids') draft.canvas = { width: 133, height: 72 };
-            if (preset === 'rv_pids') draft.canvas = { width: 136, height: 76 };
-            if (preset === 'pids_1a') draft.canvas = { width: 96, height: 48 };
-          })
-        }
         onZoomOut={() => store.setZoom((value) => Math.max(MIN_CANVAS_ZOOM, value - 1))}
         onZoomIn={() => store.setZoom((value) => Math.min(MAX_CANVAS_ZOOM, value + 1))}
         onSnapChange={store.setSnapToGrid}
@@ -311,6 +398,7 @@ export default function App() {
           activeTab={leftTab}
           selectedId={store.selectedId}
           dragLayerId={dragLayerId}
+          targetGroupId={targetGroupId}
           onTabChange={(tab) => setLeftTab(tab as 'Components' | 'Layers')}
           onSetSelectedId={store.setSelectedId}
           onSetDragLayerId={setDragLayerId}
@@ -319,11 +407,16 @@ export default function App() {
             const group = store.project.groups.find((item) => item.id === id);
             store.updateGroup(id, { expanded: group?.expanded === false ? true : false });
           }}
+          onAddGroup={store.addGroup}
+          onRenameGroup={store.renameGroup}
+          onDeleteGroup={store.deleteGroup}
+          onTargetGroupChange={setTargetGroupId}
           onAddComponent={store.addComponent}
           onToggleVisible={(element) => store.updateElement(element.id, { visible: !element.visible })}
           onToggleLocked={(element) => store.updateElement(element.id, { locked: !element.locked })}
           onDeleteElement={store.deleteElement}
           onMoveLayer={store.moveLayer}
+          onMoveElementToGroup={store.moveElementToGroup}
         />
 
         <section className="workbench-shell">
@@ -333,10 +426,15 @@ export default function App() {
             assetUrls={assetUrls}
             scenario={store.scenario}
             zoom={store.zoom}
+            guides={store.project.guides}
             renderedElements={renderedElements}
             selectedId={store.selectedId}
             onScenarioChange={(value) => store.setScenario(value as typeof SCENARIOS[number]['value'])}
             onReset={store.resetProject}
+            onClearGuides={() => store.updateProject((draft) => { draft.guides = []; })}
+            onCreateGuide={(axis, value) => store.updateProject((draft) => {
+              draft.guides.push({ id: uid('guide'), axis, value: round(value) });
+            })}
             onPointerMove={onCanvasPointerMove}
             onPointerUp={() => {
               setDragState(null);
@@ -358,22 +456,20 @@ export default function App() {
         </section>
 
         <aside className="sidebar inspector">
-          <Tabs active={rightTab} items={['Properties', 'Bindings', 'Style']} onChange={(tab) => setRightTab(tab as 'Properties' | 'Bindings' | 'Style')} />
+          <Tabs active={rightTab} items={['Properties', 'Bindings', 'Style', 'Texture Assets']} onChange={(tab) => setRightTab(tab as 'Properties' | 'Bindings' | 'Style' | 'Texture Assets')} />
           {rightTab === 'Properties' && (
             <>
               <ProjectInspector
                 project={store.project}
                 onChange={(patch) => store.updateProject((draft) => Object.assign(draft, patch))}
-                onImportTexture={() => textureInputRef.current?.click()}
-                onRemoveAsset={store.removeAsset}
+                onOpenTextureAssets={() => setRightTab('Texture Assets')}
               />
-              {store.selectedId === '__repeatRows' ? (
-                <RepeatRowsInspector project={store.project} onChange={(patch) => store.updateProject((draft) => { draft.repeatRows = { ...draft.repeatRows, ...patch }; })} />
-              ) : store.selected ? (
+              {store.selected ? (
                 <Inspector
                   element={store.selected}
-                  isTemplate={store.selected.parentId === store.project.repeatRows.groupId}
                   project={store.project}
+                  onMoveToGroup={store.moveElementToGroup}
+                  onTextureAssetChange={store.updateTextureElementAsset}
                   onChange={(patch) => store.updateElement(store.selected!.id, patch)}
                   onDuplicate={() => store.duplicateElement(store.selected!.id)}
                   onDelete={() => store.deleteElement(store.selected!.id)}
@@ -384,6 +480,15 @@ export default function App() {
                 <div className="empty-state">Select a layer or canvas element to edit its properties.</div>
               )}
             </>
+          )}
+          {rightTab === 'Texture Assets' && (
+            <TextureAssetsPanel
+              assets={store.project.assets}
+              onImportTexture={() => textureInputRef.current?.click()}
+              onUpdateAsset={store.updateAsset}
+              onRemoveAsset={store.removeAsset}
+              onBack={() => setRightTab('Properties')}
+            />
           )}
           {rightTab === 'Bindings' && (
             <>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultProject } from '../editor/defaultProject';
+import { createDefaultProject, createDemoProject } from '../editor/defaultProject';
 import { generatePidsScript, generateResourceJson } from '../editor/codegen';
 
 describe('codegen', () => {
@@ -19,5 +19,21 @@ describe('codegen', () => {
     const json = generateResourceJson(project);
     expect(json).toContain('"scriptFiles"');
     expect(json).toContain('jsblock:scripts/pids/custom_pids.js');
+  });
+
+  it('generates horizontal repeat rows when configured per element', () => {
+    const project = createDemoProject();
+    const repeated = project.elements.find((element) => element.id === 'destination_template');
+    if (!repeated || repeated.kind !== 'text') throw new Error('destination_template is missing');
+    repeated.repeat = {
+      enabled: true,
+      count: 4,
+      direction: 'horizontal',
+      gap: 3
+    };
+    const script = generatePidsScript(project);
+
+    expect(script).toContain('const rowX = 28 + i * 57');
+    expect(script).toContain('const rowY = 0 + i * 0');
   });
 });

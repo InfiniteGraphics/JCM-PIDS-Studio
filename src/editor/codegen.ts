@@ -98,12 +98,13 @@ export function generateResourceJson(project: PidsProject) {
 }
 
 export function generatePidsScript(project: PidsProject) {
+  const templateGroupId = 'rowTemplate';
   const absoluteElements = project.elements
-    .filter((element) => element.visible && element.parentId !== project.repeatRows.groupId)
+    .filter((element) => element.visible && element.parentId !== templateGroupId)
     .sort((a, b) => a.z - b.z);
 
   const rowElements = project.elements
-    .filter((element) => element.visible && element.parentId === project.repeatRows.groupId)
+    .filter((element) => element.visible && element.parentId === templateGroupId && element.repeat?.enabled)
     .sort((a, b) => a.z - b.z);
 
   const metadata = embedProjectMetadata(project);
@@ -139,42 +140,7 @@ ${absoluteBody || '  // No absolute elements configured.'}
 }
 
 function drawRows(ctx, state, pids, getArrival, getCustomMessage, isRowHidden, isPlatformHidden) {
-  const rowCount = ${project.repeatRows.countSource === 'pids.rows' ? `Math.min(pids.rows || ${project.repeatRows.maxRows}, ${project.repeatRows.maxRows})` : `${project.repeatRows.maxRows}`};
-  let visibleRowIndex = 0;
-
-  for (let i = 0; i < rowCount; i += 1) {
-    if (${project.behavior.respectHideArrival && project.repeatRows.skipHiddenRows ? 'isRowHidden(i)' : 'false'}) continue;
-
-    const customMessage = ${project.behavior.respectCustomMessage ? 'getCustomMessage(i)' : `''`};
-    const arrival = getArrival(i);
-    const rowY = ${round(project.repeatRows.startY)} + visibleRowIndex * ${round(project.repeatRows.rowHeight)};
-
-    if (customMessage && ${q(project.repeatRows.customMessageMode)} === 'replace-row') {
-${rowCustom || '      // No custom message row elements configured.'}
-      visibleRowIndex += 1;
-      continue;
-    }
-
-    if (arrival == null) {
-      if (!${project.repeatRows.showFallbackWhenEmpty ? 'true' : 'false'}) continue;
-    }
-
-${rowAlways || '    // No always-visible row elements configured.'}
-
-    if (arrival != null) {
-${rowArrival || '      // No arrival-bound row elements configured.'}
-    }
-
-    if (!${project.behavior.respectHidePlatformNumber ? 'isPlatformHidden()' : 'false'} && arrival != null) {
-${rowPlatform || '      // No platform-bound row elements configured.'}
-    }
-
-    if (customMessage && ${q(project.repeatRows.customMessageMode)} === 'overlay') {
-${rowCustom || '      // No custom message overlay elements configured.'}
-    }
-
-    visibleRowIndex += 1;
-  }
+${rowElements.map((element) => indent(generateRepeatedElement(element), 1)).join('\n\n') || '  // No repeated elements configured.'}
 }
 
 function dispose(ctx, state, pids) {
@@ -248,6 +214,21 @@ function generateConditionalRowElements(elements: PidsElement[], condition: 'alw
     .join('\n\n');
 }
 
+function generateRepeatedElement(element: PidsElement) {
+  const repeat = element.repeat!;
+  const rowCountExpr = `(${repeat.count})`;
+  const stepX = repeat.direction === 'horizontal' ? round(element.w + repeat.gap) : 0;
+  const stepY = repeat.direction === 'vertical' ? round(element.h + repeat.gap) : 0;
+  const lines = [
+    `for (let i = 0; i < ${rowCountExpr}; i += 1) {`,
+    `  const rowX = ${round(element.x)} + i * ${stepX};`,
+    `  const rowY = ${round(element.y)} + i * ${stepY};`,
+    `  ${generateElement(element, 'row').replace(/^/gm, '  ')}`,
+    `}`
+  ];
+  return lines.join('\n');
+}
+
 function generateElement(element: PidsElement, mode: 'absolute' | 'row') {
   switch (element.kind) {
     case 'text':
@@ -270,7 +251,7 @@ function generateText(element: TextElement, mode: 'absolute' | 'row') {
   const lines = [
     `Text.create(${q(element.name)})`,
     `  ${emitTextCall('text', [expression]).slice(1)}`,
-    `  ${emitTextCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
+    `  ${emitTextCall('pos', [textXExpression(element, mode), textYExpression(element, mode)]).slice(1)}`,
     `  ${emitTextCall('size', [literal(round(element.w)), literal(round(element.h))]).slice(1)}`,
     `  ${emitTextCall('color', [colorToJcm(element.color)]).slice(1)}`,
     `  ${emitTextCall('scale', [literal(element.fontSize / 5)]).slice(1)}`,
@@ -291,7 +272,7 @@ function generateRect(element: RectElement, mode: 'absolute' | 'row') {
   const lines = [
     `Texture.create(${q(element.name)})`,
     `  ${emitTextureCall('texture', [q('jsblock:textures/block/pids/pixel.png')]).slice(1)}`,
-    `  ${emitTextureCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
+    `  ${emitTextureCall('pos', [textXExpression(element, mode), textYExpression(element, mode)]).slice(1)}`,
     `  ${emitTextureCall('size', [literal(round(element.w)), literal(round(element.h))]).slice(1)}`,
     `  ${emitTextureCall('color', [colorToJcm(element.fill)]).slice(1)}`,
     element.uv ? `  ${emitTextureCall('uv', element.uv.map((value) => literal(round(value)))).slice(1)}` : '',
@@ -305,7 +286,7 @@ function generateTexture(element: TextureElement, mode: 'absolute' | 'row') {
   const lines = [
     `Texture.create(${q(element.name)})`,
     `  ${emitTextureCall('texture', [q(element.textureId)]).slice(1)}`,
-    `  ${emitTextureCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
+    `  ${emitTextureCall('pos', [textXExpression(element, mode), textYExpression(element, mode)]).slice(1)}`,
     `  ${emitTextureCall('size', [literal(round(element.w)), literal(round(element.h))]).slice(1)}`,
     `  ${emitTextureCall('color', [tint]).slice(1)}`,
     element.uv ? `  ${emitTextureCall('uv', element.uv.map((value) => literal(round(value)))).slice(1)}` : '',
@@ -318,7 +299,7 @@ function generateLine(element: LineElement, mode: 'absolute' | 'row') {
   return [
     `Texture.create(${q(element.name)})`,
     `  ${emitTextureCall('texture', [q('jsblock:textures/block/pids/pixel.png')]).slice(1)}`,
-    `  ${emitTextureCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
+    `  ${emitTextureCall('pos', [textXExpression(element, mode), textYExpression(element, mode)]).slice(1)}`,
     `  ${emitTextureCall('size', [literal(round(element.w)), literal(round(Math.max(element.strokeWidth, 0.4)))]).slice(1)}`,
     `  ${emitTextureCall('color', [colorToJcm(element.stroke)]).slice(1)}`,
     `  ${emitTextureCall('draw', ['ctx']).slice(1)}`
@@ -352,7 +333,7 @@ function generateCircle(element: CircleElement, mode: 'absolute' | 'row') {
     ? `getRouteColor(arrival, ${q(element.fill)})`
     : colorToJcm(element.fill);
 
-  return `drawRouteChip(ctx, ${round(element.x)}, ${textYExpression(element, mode)}, ${round(element.w)}, ${color}, ${label});`;
+  return `drawRouteChip(ctx, ${textXExpression(element, mode)}, ${textYExpression(element, mode)}, ${round(element.w)}, ${color}, ${label});`;
 }
 
 function resolveBindingExpression(binding: BindingKey, element: TextElement, mode: 'absolute' | 'row') {
@@ -383,6 +364,10 @@ function overflowCall(element: TextElement) {
 
 function textYExpression(element: PidsElement, mode: 'absolute' | 'row') {
   return mode === 'row' ? `rowY + ${round(element.y)}` : literal(round(element.y));
+}
+
+function textXExpression(element: PidsElement, mode: 'absolute' | 'row') {
+  return mode === 'row' ? `rowX + ${round(element.x)}` : literal(round(element.x));
 }
 
 function embedProjectMetadata(project: PidsProject) {

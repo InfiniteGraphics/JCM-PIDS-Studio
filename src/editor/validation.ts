@@ -18,6 +18,7 @@ export function validateProject(project: PidsProject): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const ids = new Set<string>();
   const groupIds = new Set(project.groups.map((group) => group.id));
+  const templateGroupId = 'rowTemplate';
 
   try {
     assertValidResourceNamespace(project.resourceNamespace);
@@ -45,9 +46,9 @@ export function validateProject(project: PidsProject): ValidationIssue[] {
       issues.push(elementIssue('error', 'MISSING_PARENT_GROUP', element.id, `${element.name} references a missing parent group.`));
     }
 
-    const isTemplate = element.parentId === project.repeatRows.groupId;
-    const minY = isTemplate ? -project.repeatRows.rowHeight : 0;
-    const maxY = isTemplate ? project.repeatRows.rowHeight : project.canvas.height;
+    const isTemplate = element.parentId === templateGroupId;
+    const minY = isTemplate ? -element.h : 0;
+    const maxY = isTemplate ? element.h : project.canvas.height;
     if (element.x < 0 || element.y < minY || element.x + element.w > project.canvas.width || element.y + element.h > maxY) {
       issues.push(elementIssue('warning', 'ELEMENT_OUT_OF_BOUNDS', element.id, `${element.name} is partially outside its canvas or row-template bounds.`));
     }
@@ -100,18 +101,6 @@ export function validateProject(project: PidsProject): ValidationIssue[] {
       }
     }
   });
-
-  if (project.repeatRows.enabled) {
-    if (project.repeatRows.maxRows < 1) {
-      issues.push(projectIssue('error', 'INVALID_REPEAT_ROWS_MAX', 'Repeat Rows maxRows must be at least 1.'));
-    }
-    if (project.repeatRows.rowHeight <= 0) {
-      issues.push(projectIssue('error', 'INVALID_REPEAT_ROWS_HEIGHT', 'Repeat Rows rowHeight must be greater than zero.'));
-    }
-    if (project.repeatRows.startY + project.repeatRows.rowHeight * project.repeatRows.maxRows > project.canvas.height + 6) {
-      issues.push(projectIssue('warning', 'REPEAT_ROWS_EXCEED_CANVAS', 'Repeat Rows may extend beyond the PIDS canvas height.'));
-    }
-  }
 
   return issues;
 }
@@ -170,7 +159,7 @@ function validateElementBinding(project: PidsProject, element: PidsElement, issu
   if (!binding) return;
 
   const definition = getBindingDefinition(binding);
-  const inRepeatRows = element.parentId === project.repeatRows.groupId;
+  const inRepeatRows = element.parentId === 'rowTemplate';
   if (definition.requiresArrival && !inRepeatRows && typeof ('rowIndex' in element ? element.rowIndex : undefined) !== 'number') {
     issues.push(elementIssue('warning', 'ARRIVAL_BINDING_OUTSIDE_REPEAT_ROWS', element.id, `${element.name} uses an arrival binding outside Repeat Rows without a fixed row index.`));
   }

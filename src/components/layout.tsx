@@ -19,7 +19,6 @@ export function TopToolbar({
   canUndo,
   canRedo,
   canPaste,
-  onPresetChange,
   onZoomOut,
   onZoomIn,
   onSnapChange,
@@ -39,7 +38,6 @@ export function TopToolbar({
   canUndo: boolean;
   canRedo: boolean;
   canPaste: boolean;
-  onPresetChange: (preset: PidsProject['preset']) => void;
   onZoomOut: () => void;
   onZoomIn: () => void;
   onSnapChange: (checked: boolean) => void;
@@ -64,15 +62,6 @@ export function TopToolbar({
         <span className="badge">v0.1</span>
       </div>
       <div className="toolbar-group">
-        <label>Preset</label>
-        <select value={project.preset} onChange={(event) => onPresetChange(event.target.value as PidsProject['preset'])}>
-          <option value="rv_pids">RV PIDS</option>
-          <option value="rv_pids_sil_1">RV PIDS SIL 1</option>
-          <option value="rv_pids_sil_2">RV PIDS SIL 2</option>
-          <option value="lcd_pids">LCD PIDS</option>
-          <option value="pids_projector">PIDS Projector</option>
-          <option value="pids_1a">PIDS 1A</option>
-        </select>
         <label>Canvas</label>
         <span className="pill">{project.canvas.width} x {project.canvas.height}</span>
         <label>Zoom</label>
@@ -101,31 +90,43 @@ export function LeftSidebar({
   activeTab,
   selectedId,
   dragLayerId,
+  targetGroupId,
   onTabChange,
   onSetSelectedId,
   onSetDragLayerId,
   onToggleGroupVisibility,
   onToggleGroupExpanded,
+  onAddGroup,
+  onRenameGroup,
+  onDeleteGroup,
+  onTargetGroupChange,
   onAddComponent,
   onToggleVisible,
   onToggleLocked,
   onDeleteElement,
-  onMoveLayer
+  onMoveLayer,
+  onMoveElementToGroup
 }: {
   project: PidsProject;
   activeTab: 'Components' | 'Layers';
   selectedId: string;
   dragLayerId: string | null;
+  targetGroupId: string;
   onTabChange: (tab: 'Components' | 'Layers') => void;
   onSetSelectedId: (id: string) => void;
   onSetDragLayerId: (id: string | null) => void;
   onToggleGroupVisibility: (id: string) => void;
   onToggleGroupExpanded: (id: string) => void;
+  onAddGroup: () => void;
+  onRenameGroup: (id: string, name: string) => void;
+  onDeleteGroup: (id: string) => void;
+  onTargetGroupChange: (id: string) => void;
   onAddComponent: (kind: 'text' | 'rect' | 'texture' | 'circle' | 'line', parentId: string) => void;
   onToggleVisible: (element: PidsElement) => void;
   onToggleLocked: (element: PidsElement) => void;
   onDeleteElement: (id: string) => void;
   onMoveLayer: (dragId: string, targetId: string) => void;
+  onMoveElementToGroup: (elementId: string, groupId: string) => void;
 }) {
   return (
     <aside className="sidebar left-sidebar">
@@ -133,26 +134,48 @@ export function LeftSidebar({
       {activeTab === 'Components' && (
         <section className="panel-section">
           <PanelTitle title="Component Library" />
+          <label className="field">
+            <span>Target Layer</span>
+            <select value={targetGroupId} onChange={(event) => onTargetGroupChange(event.target.value)}>
+              {project.groups.map((group) => (
+                <option key={group.id} value={group.id}>{group.name}</option>
+              ))}
+            </select>
+          </label>
           <div className="component-grid-label">Global layers</div>
-          <ComponentButton icon="T" label="Text" onClick={() => onAddComponent('text', 'root')} />
-          <ComponentButton icon="R" label="Rect" onClick={() => onAddComponent('rect', 'root')} />
-          <ComponentButton icon="I" label="Texture" onClick={() => onAddComponent('texture', 'root')} />
-          <ComponentButton icon="C" label="Route Chip" onClick={() => onAddComponent('circle', 'root')} />
-          <ComponentButton icon="L" label="Line" onClick={() => onAddComponent('line', 'root')} />
+          <ComponentButton icon="T" label="Text" onClick={() => onAddComponent('text', targetGroupId)} />
+          <ComponentButton icon="R" label="Rect" onClick={() => onAddComponent('rect', targetGroupId)} />
+          <ComponentButton icon="I" label="Texture" onClick={() => onAddComponent('texture', targetGroupId)} />
+          <ComponentButton icon="C" label="Route Chip" onClick={() => onAddComponent('circle', targetGroupId)} />
+          <ComponentButton icon="L" label="Line" onClick={() => onAddComponent('line', targetGroupId)} />
           <div className="component-grid-label">Repeat row template</div>
           <ComponentButton icon="T" label="Row Text" onClick={() => onAddComponent('text', 'rowTemplate')} />
           <ComponentButton icon="R" label="Row Rect" onClick={() => onAddComponent('rect', 'rowTemplate')} />
           <ComponentButton icon="I" label="Row Texture" onClick={() => onAddComponent('texture', 'rowTemplate')} />
           <ComponentButton icon="C" label="Row Route Chip" onClick={() => onAddComponent('circle', 'rowTemplate')} />
           <ComponentButton icon="L" label="Row Line" onClick={() => onAddComponent('line', 'rowTemplate')} />
-          <ComponentButton icon="S" label="Repeat Rows Settings" hint="pids.rows loop" onClick={() => onSetSelectedId('__repeatRows')} />
         </section>
       )}
       {activeTab === 'Layers' && (
         <section className="panel-section layer-section">
-          <PanelTitle title="Layers" />
+          <div className="panel-header-row">
+            <PanelTitle title="Layers" />
+            <button type="button" className="ghost-inline" onClick={onAddGroup}>New Layer</button>
+          </div>
           {project.groups.map((group) => (
-            <div key={group.id} className="layer-group">
+            <div
+              key={group.id}
+              className={`layer-group ${dragLayerId ? 'drop-enabled' : ''}`}
+              onDragOver={(event) => {
+                if (!dragLayerId) return;
+                event.preventDefault();
+              }}
+              onDrop={() => {
+                if (!dragLayerId) return;
+                onMoveElementToGroup(dragLayerId, group.id);
+                onSetDragLayerId(null);
+              }}
+            >
               <div className="layer-group-title">
                 <button type="button" className="layer-icon-button text-toggle" onClick={() => onToggleGroupVisibility(group.id)}>
                   {group.visible ? 'On' : 'Off'}
@@ -160,11 +183,29 @@ export function LeftSidebar({
                 <button type="button" className="group-title-button" onClick={() => onToggleGroupExpanded(group.id)}>
                   {group.expanded === false ? '>' : 'v'} {group.name}
                 </button>
-                {group.id === project.repeatRows.groupId && (
-                  <button type="button" className="layer-icon-button text-toggle" title="Edit repeat rows settings" onClick={() => onSetSelectedId('__repeatRows')}>
-                    Set
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="layer-icon-button text-toggle"
+                  title="Rename layer"
+                  onClick={() => {
+                    const nextName = window.prompt('Rename layer', group.name);
+                    if (nextName != null) onRenameGroup(group.id, nextName);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="layer-icon-button danger-icon text-toggle"
+                  title="Delete layer"
+                  onClick={() => {
+                    if (window.confirm(`Delete layer "${group.name}"? Its elements will move to another layer.`)) {
+                      onDeleteGroup(group.id);
+                    }
+                  }}
+                >
+                  Del
+                </button>
               </div>
               {group.expanded !== false && project.elements
                 .filter((element) => element.parentId === group.id)
@@ -176,6 +217,7 @@ export function LeftSidebar({
                     className={`layer-row ${element.id === selectedId ? 'selected' : ''}`}
                     draggable
                     onDragStart={() => onSetDragLayerId(element.id)}
+                    onDragEnd={() => onSetDragLayerId(null)}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => {
                       if (dragLayerId) onMoveLayer(dragLayerId, element.id);
@@ -186,7 +228,7 @@ export function LeftSidebar({
                     <span className="layer-icon">{element.kind === 'text' ? 'T' : element.kind === 'circle' ? 'C' : element.kind === 'line' ? 'L' : element.kind === 'texture' ? 'I' : 'R'}</span>
                     <span>
                       {element.name}
-                      {element.parentId === project.repeatRows.groupId && <small>{element.condition ?? 'always'}</small>}
+                      {element.repeat?.enabled && <small>{element.repeat.direction} x {element.repeat.count}</small>}
                     </span>
                     <span className="layer-actions">
                       <button

@@ -7,6 +7,7 @@ import type {
   TextElement,
   TextureAsset,
   TextureElement,
+  TextureAssetUpdate,
   ValidationIssue
 } from '../types';
 import { ColorInput, NumberInput, PanelTitle, TextInput } from './common';
@@ -14,13 +15,11 @@ import { ColorInput, NumberInput, PanelTitle, TextInput } from './common';
 export function ProjectInspector({
   project,
   onChange,
-  onImportTexture,
-  onRemoveAsset
+  onOpenTextureAssets
 }: {
   project: PidsProject;
   onChange: (patch: Partial<PidsProject>) => void;
-  onImportTexture: () => void;
-  onRemoveAsset: (assetId: string) => void;
+  onOpenTextureAssets: () => void;
 }) {
   return (
     <section className="panel-section inspector-stack compact-section">
@@ -40,22 +39,51 @@ export function ProjectInspector({
         <label><input type="checkbox" checked={project.behavior.respectHideArrival} onChange={(event) => onChange({ behavior: { ...project.behavior, respectHideArrival: event.target.checked } })} /> Hide arrival</label>
         <label><input type="checkbox" checked={project.behavior.autoZOrdering} onChange={(event) => onChange({ behavior: { ...project.behavior, autoZOrdering: event.target.checked } })} /> Auto Z</label>
       </div>
-      <PanelTitle title="Texture Assets" />
-      <div className="button-row">
+      <div className="button-row single">
+        <button type="button" onClick={onOpenTextureAssets}>View Texture Assets</button>
+      </div>
+    </section>
+  );
+}
+
+export function TextureAssetsPanel({
+  assets,
+  onImportTexture,
+  onUpdateAsset,
+  onRemoveAsset,
+  onBack
+}: {
+  assets: TextureAsset[];
+  onImportTexture: () => void;
+  onUpdateAsset: (assetId: string, patch: TextureAssetUpdate) => void;
+  onRemoveAsset: (assetId: string) => void;
+  onBack: () => void;
+}) {
+  return (
+    <section className="panel-section inspector-stack compact-section">
+      <div className="panel-header-row">
+        <PanelTitle title="Texture Assets" />
+        <button type="button" className="ghost-inline" onClick={onBack}>Back</button>
+      </div>
+      <div className="button-row single">
         <button type="button" onClick={onImportTexture}>Import PNG</button>
       </div>
-      {project.assets.length === 0 ? (
+      {assets.length === 0 ? (
         <div className="valid-state">No texture assets imported.</div>
       ) : (
-        <div className="asset-list">
-          {project.assets.map((asset) => (
-            <div key={asset.id} className="asset-row">
-              <img src={`data:${asset.mimeType};base64,${asset.dataBase64}`} alt={asset.name} />
-              <div>
-                <strong>{asset.name}</strong>
-                <div>{asset.textureId}</div>
+        <div className="texture-assets-list">
+          {assets.map((asset) => (
+            <div key={asset.id} className="texture-asset-card">
+              <div className="texture-asset-thumb">
+                <img src={`data:${asset.mimeType};base64,${asset.dataBase64}`} alt={asset.name} />
               </div>
-              <button type="button" className="danger" onClick={() => onRemoveAsset(asset.id)}>Remove</button>
+              <div className="texture-asset-fields">
+                <TextInput label="Name" value={asset.name} onChange={(name) => onUpdateAsset(asset.id, { name })} />
+                <TextInput label="Texture ID" value={asset.textureId} onChange={(textureId) => onUpdateAsset(asset.id, { textureId })} />
+                <div className="texture-asset-meta">{asset.width} x {asset.height}</div>
+                <div className="texture-asset-meta">{asset.zipPath}</div>
+                <button type="button" className="danger" onClick={() => onRemoveAsset(asset.id)}>Delete</button>
+              </div>
             </div>
           ))}
         </div>
@@ -71,44 +99,19 @@ export function RepeatRowsInspector({
   project: PidsProject;
   onChange: (patch: Partial<PidsProject['repeatRows']>) => void;
 }) {
-  const repeat = project.repeatRows;
   return (
     <section className="panel-section inspector-stack">
       <PanelTitle title="Repeat Rows" />
-      <div className="property-grid two">
-        <NumberInput label="Start Y" value={repeat.startY} onChange={(startY) => onChange({ startY })} />
-        <NumberInput label="Row Height" value={repeat.rowHeight} onChange={(rowHeight) => onChange({ rowHeight })} />
-        <NumberInput label="Max Rows" value={repeat.maxRows} onChange={(maxRows) => onChange({ maxRows })} />
-        <label className="field">
-          <span>Count Source</span>
-          <select value={repeat.countSource} onChange={(event) => onChange({ countSource: event.target.value as PidsProject['repeatRows']['countSource'] })}>
-            <option value="pids.rows">pids.rows</option>
-            <option value="fixed">Fixed</option>
-          </select>
-        </label>
-      </div>
-      <label className="field">
-        <span>Custom Message</span>
-        <select value={repeat.customMessageMode} onChange={(event) => onChange({ customMessageMode: event.target.value as PidsProject['repeatRows']['customMessageMode'] })}>
-          <option value="replace-row">Replace row</option>
-          <option value="overlay">Overlay</option>
-          <option value="ignore">Ignore</option>
-        </select>
-      </label>
-      <div className="check-grid">
-        <label><input type="checkbox" checked={repeat.enabled} onChange={(event) => onChange({ enabled: event.target.checked })} /> Enabled</label>
-        <label><input type="checkbox" checked={repeat.skipHiddenRows} onChange={(event) => onChange({ skipHiddenRows: event.target.checked })} /> Skip hidden rows</label>
-        <label><input type="checkbox" checked={repeat.collapseEmptyRows} onChange={(event) => onChange({ collapseEmptyRows: event.target.checked })} /> Collapse empty</label>
-        <label><input type="checkbox" checked={repeat.showFallbackWhenEmpty} onChange={(event) => onChange({ showFallbackWhenEmpty: event.target.checked })} /> Fallback when empty</label>
-      </div>
+      <div className="valid-state">Repeat settings are now edited per component on the selected row-template element.</div>
     </section>
   );
 }
 
 export function Inspector({
   element,
-  isTemplate,
   project,
+  onMoveToGroup,
+  onTextureAssetChange,
   onChange,
   onDuplicate,
   onDelete,
@@ -116,8 +119,9 @@ export function Inspector({
   onMoveDown
 }: {
   element: PidsElement;
-  isTemplate: boolean;
   project: PidsProject;
+  onMoveToGroup: (elementId: string, groupId: string) => void;
+  onTextureAssetChange: (elementId: string, assetId: string | undefined) => void;
   onChange: (patch: Partial<PidsElement>) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -130,31 +134,68 @@ export function Inspector({
       <TextInput label="Name" value={element.name} onChange={(name) => onChange({ name })} />
       <div className="property-grid two">
         <NumberInput label="X" value={element.x} onChange={(x) => onChange({ x })} />
-        <NumberInput label={isTemplate ? 'Y in row' : 'Y'} value={element.y} onChange={(y) => onChange({ y })} />
+        <NumberInput label="Y" value={element.y} onChange={(y) => onChange({ y })} />
         <NumberInput label="W" value={element.w} onChange={(w) => onChange({ w: Math.max(0.5, w) })} />
         <NumberInput label="H" value={element.h} onChange={(h) => onChange({ h: Math.max(0.5, h) })} />
         <NumberInput label="Z" value={element.z} onChange={(z) => onChange({ z })} />
         <label className="field check-field"><input type="checkbox" checked={element.visible} onChange={(event) => onChange({ visible: event.target.checked })} /> Visible</label>
       </div>
-      {isTemplate && (
-        <label className="field">
-          <span>Condition</span>
-          <select value={element.condition ?? 'always'} onChange={(event) => onChange({ condition: event.target.value as ElementCondition })}>
-            <option value="always">Always</option>
-            <option value="arrival">Arrival</option>
-            <option value="platformVisible">Platform visible</option>
-            <option value="customMessage">Custom message</option>
-          </select>
-        </label>
-      )}
+      <label className="field">
+        <span>Layer</span>
+        <select value={element.parentId ?? 'root'} onChange={(event) => onMoveToGroup(element.id, event.target.value)}>
+          {project.groups.map((group) => (
+            <option key={group.id} value={group.id}>{group.name}</option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>Condition</span>
+        <select value={element.condition ?? 'always'} onChange={(event) => onChange({ condition: event.target.value as ElementCondition })}>
+          <option value="always">Always</option>
+          <option value="arrival">Arrival</option>
+          <option value="platformVisible">Platform visible</option>
+          <option value="customMessage">Custom message</option>
+        </select>
+      </label>
+      <RepeatInspector element={element} onChange={onChange as (patch: Partial<PidsElement>) => void} />
       {element.kind === 'text' && <TextInspector element={element} onChange={onChange as (patch: Partial<TextElement>) => void} />}
       {element.kind === 'rect' && <RectInspector element={element} onChange={onChange} />}
-      {element.kind === 'texture' && <TextureInspector element={element} assets={project.assets} onChange={onChange as (patch: Partial<TextureElement>) => void} />}
+      {element.kind === 'texture' && <TextureInspector element={element} assets={project.assets} onAssetChange={onTextureAssetChange} onChange={onChange as (patch: Partial<TextureElement>) => void} />}
       {element.kind === 'circle' && <CircleInspector element={element} onChange={onChange} />}
       {element.kind === 'line' && <LineInspector element={element} onChange={onChange} />}
       <div className="button-row"><button onClick={onMoveDown}>Send Back</button><button onClick={onMoveUp}>Bring Front</button></div>
       <div className="button-row"><button onClick={onDuplicate}>Duplicate</button><button className="danger" onClick={onDelete}>Delete</button></div>
     </section>
+  );
+}
+
+function RepeatInspector({
+  element,
+  onChange
+}: {
+  element: PidsElement;
+  onChange: (patch: Partial<PidsElement>) => void;
+}) {
+  const repeat = element.repeat ?? { enabled: false, count: 1, direction: 'vertical', gap: 0 };
+  return (
+    <>
+      <PanelTitle title="Repeat" />
+      <div className="property-grid two">
+        <NumberInput label="Count" value={repeat.count} onChange={(count) => onChange({ repeat: { ...repeat, count } })} />
+        <NumberInput label="Gap" value={repeat.gap} onChange={(gap) => onChange({ repeat: { ...repeat, gap } })} />
+        <label className="field">
+          <span>Direction</span>
+          <select value={repeat.direction} onChange={(event) => onChange({ repeat: { ...repeat, direction: event.target.value as 'vertical' | 'horizontal' } })}>
+            <option value="vertical">Vertical</option>
+            <option value="horizontal">Horizontal</option>
+          </select>
+        </label>
+        <label className="field check-field">
+          <input type="checkbox" checked={repeat.enabled} onChange={(event) => onChange({ repeat: { ...repeat, enabled: event.target.checked } })} />
+          Repeat enabled
+        </label>
+      </div>
+    </>
   );
 }
 
@@ -198,12 +239,16 @@ function RectInspector({ element, onChange }: { element: RectElement; onChange: 
 function TextureInspector({
   element,
   assets,
+  onAssetChange,
   onChange
 }: {
   element: TextureElement;
   assets: TextureAsset[];
+  onAssetChange: (elementId: string, assetId: string | undefined) => void;
   onChange: (patch: Partial<TextureElement>) => void;
 }) {
+  const linkedAsset = element.assetId ? assets.find((asset) => asset.id === element.assetId) ?? null : null;
+
   return (
     <>
       <PanelTitle title="Texture Style" />
@@ -212,11 +257,7 @@ function TextureInspector({
         <select
           value={element.assetId ?? ''}
           onChange={(event) => {
-            const asset = assets.find((item) => item.id === event.target.value);
-            onChange({
-              assetId: asset?.id,
-              textureId: asset?.textureId ?? element.textureId
-            });
+            onAssetChange(element.id, event.target.value || undefined);
           }}
         >
           <option value="">Use texture ID only</option>
@@ -228,9 +269,11 @@ function TextureInspector({
       <TextInput label="Texture ID" value={element.textureId} onChange={(textureId) => onChange({ textureId })} />
       <ColorInput label="Tint" value={element.tint ?? '#ffffff'} onChange={(tint) => onChange({ tint })} />
       <NumberInput label="Opacity" value={element.opacity ?? 1} onChange={(opacity) => onChange({ opacity })} />
-      {element.assetId && assets.find((asset) => asset.id === element.assetId) && (
+      {linkedAsset && (
         <div className="asset-preview-inline">
-          <img src={`data:image/png;base64,${assets.find((asset) => asset.id === element.assetId)!.dataBase64}`} alt={element.name} />
+          <div className="asset-preview-frame">
+            <img src={`data:image/png;base64,${linkedAsset.dataBase64}`} alt={element.name} />
+          </div>
         </div>
       )}
     </>
