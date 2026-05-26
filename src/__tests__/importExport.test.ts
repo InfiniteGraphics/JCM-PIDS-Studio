@@ -38,9 +38,18 @@ describe('import/export', () => {
 
   it('builds resource pack zip and manifest', async () => {
     const project = createDefaultProject();
+    project.assets.push({
+      id: 'asset_logo',
+      name: 'logo',
+      textureId: 'jsblock:textures/imported/logo.png',
+      zipPath: 'assets/jsblock/textures/imported/logo.png',
+      mimeType: 'image/png',
+      dataBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
+    });
     const result = await buildResourcePackZip(project);
     expect(result.manifest.files).toContain('joban_custom_resources.json');
     expect(result.manifest.files).toContain('js-pids-editor.project.json');
+    expect(result.manifest.files).toContain('assets/jsblock/textures/imported/logo.png');
     expect(result.manifest.scriptZipPath).toBe('assets/jsblock/scripts/pids/custom_pids.js');
     expect(result.blob.size).toBeGreaterThan(0);
   });

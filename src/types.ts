@@ -13,6 +13,7 @@ export type BindingKey =
   | 'static'
   | 'stationName'
   | 'clock'
+  | 'pids.station()'
   | 'pids.type'
   | 'pids.width'
   | 'pids.height'
@@ -20,6 +21,8 @@ export type BindingKey =
   | 'pids.getCustomMessage(i)'
   | 'pids.isRowHidden(i)'
   | 'pids.isPlatformNumberHidden()'
+  | 'arrivals.mixedCarLength()'
+  | 'arrivals.platforms()'
   | 'rowIndex'
   | 'rowNumber'
   | 'arrival.destination()'
@@ -31,7 +34,11 @@ export type BindingKey =
   | 'arrival.departureTime()'
   | 'arrival.deviation()'
   | 'arrival.realtime()'
+  | 'arrival.departureIndex()'
   | 'arrival.terminating()'
+  | 'arrival.routeId()'
+  | 'arrival.circularState()'
+  | 'arrival.platformId()'
   | 'arrival.carCount()'
   | 'computed.etaText'
   | 'computed.routeDisplay'
@@ -78,7 +85,15 @@ export interface RectElement extends BaseElement {
   stroke?: string;
   radius?: number;
   opacity?: number;
-  textureId?: string;
+  uv?: [number, number, number, number];
+}
+
+export interface TextureElement extends BaseElement {
+  kind: 'texture';
+  textureId: string;
+  assetId?: string;
+  tint?: string;
+  opacity?: number;
   uv?: [number, number, number, number];
 }
 
@@ -99,7 +114,7 @@ export interface CircleElement extends BaseElement {
   textureId?: string;
 }
 
-export type PidsElement = TextElement | RectElement | LineElement | CircleElement;
+export type PidsElement = TextElement | RectElement | TextureElement | LineElement | CircleElement;
 
 export interface LayerGroup {
   id: string;
@@ -133,8 +148,17 @@ export interface PidsBehavior {
   zOrderStep: number;
 }
 
+export interface TextureAsset {
+  id: string;
+  name: string;
+  textureId: string;
+  zipPath: string;
+  mimeType: 'image/png';
+  dataBase64: string;
+}
+
 export interface PidsProject {
-  schemaVersion: 2;
+  schemaVersion: 3;
   name: string;
   preset: PidsPreset;
   resourceNamespace: string;
@@ -145,8 +169,27 @@ export interface PidsProject {
   };
   groups: LayerGroup[];
   elements: PidsElement[];
+  assets: TextureAsset[];
   repeatRows: RepeatRowsConfig;
   behavior: PidsBehavior;
+}
+
+export interface MockStation {
+  id: number;
+  name: string;
+}
+
+export interface MockPlatform {
+  id: number;
+  name: string;
+  stationId: number;
+  stationName: string;
+  destination: string;
+}
+
+export interface MockCarDetails {
+  vehicleId: string;
+  occupancy: number;
 }
 
 export interface ArrivalMock {
@@ -154,13 +197,18 @@ export interface ArrivalMock {
   routeNumber: string;
   routeColor: string;
   destination: string;
-  arrivalTime: string;
-  departureTime: string;
+  arrivalTime: number;
+  departureTime: number;
   deviation: number;
   realtime: boolean;
+  departureIndex: number;
   terminating: boolean;
+  routeId: number;
+  circularState: string;
+  platformId: number;
   platformName: string;
   carCount: number;
+  cars: MockCarDetails[];
 }
 
 export interface MockRuntime {
@@ -168,11 +216,15 @@ export interface MockRuntime {
   width: number;
   height: number;
   rows: number;
+  currentTime: number;
   stationName: string;
+  station: MockStation | null;
   clock: string;
   customMessages: string[];
   hiddenRows: number[];
   hidePlatformNumber: boolean;
+  mixedCarLength: boolean;
+  platforms: MockPlatform[];
   arrivals: Array<ArrivalMock | null>;
 }
 

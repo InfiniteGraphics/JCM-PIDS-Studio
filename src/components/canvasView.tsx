@@ -9,6 +9,7 @@ import { Rulers } from './common';
 export function CanvasWorkbench({
   project,
   runtime,
+  assetUrls,
   scenario,
   zoom,
   renderedElements,
@@ -23,6 +24,7 @@ export function CanvasWorkbench({
 }: {
   project: PidsProject;
   runtime: MockRuntime;
+  assetUrls: Record<string, string>;
   scenario: string;
   zoom: number;
   renderedElements: RenderedElement[];
@@ -85,6 +87,7 @@ export function CanvasWorkbench({
               key={rendered.key}
               rendered={rendered}
               runtime={runtime}
+              assetUrls={assetUrls}
               selected={rendered.element.id === selectedId}
               onPointerDown={(event) => onElementPointerDown(event, rendered)}
               onResizeStart={onResizeStart}
@@ -99,12 +102,14 @@ export function CanvasWorkbench({
 function ElementView({
   rendered,
   runtime,
+  assetUrls,
   selected,
   onPointerDown,
   onResizeStart
 }: {
   rendered: RenderedElement;
   runtime: MockRuntime;
+  assetUrls: Record<string, string>;
   selected: boolean;
   onPointerDown: (event: React.PointerEvent<SVGElement>) => void;
   onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
@@ -117,6 +122,20 @@ function ElementView({
     return (
       <g onPointerDown={onPointerDown} className="canvas-element">
         <rect x={x} y={y} width={element.w} height={element.h} fill={element.fill} stroke={element.stroke ?? 'none'} strokeWidth="0.35" rx={element.radius ?? 0} opacity={element.opacity ?? 1} />
+        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
+      </g>
+    );
+  }
+
+  if (element.kind === 'texture') {
+    const assetHref = element.assetId ? assetUrls[element.assetId] ?? null : null;
+    return (
+      <g onPointerDown={onPointerDown} className="canvas-element">
+        {assetHref ? (
+          <image href={assetHref} x={x} y={y} width={element.w} height={element.h} opacity={element.opacity ?? 1} preserveAspectRatio="none" />
+        ) : (
+          <rect x={x} y={y} width={element.w} height={element.h} fill={element.tint ?? '#ffffff'} stroke="#2ffff8" strokeDasharray="1 1" opacity={element.opacity ?? 1} />
+        )}
         {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
       </g>
     );

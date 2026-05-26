@@ -8,10 +8,11 @@ import type {
   ElementCondition,
   MockScenario,
   PidsElement,
-  PidsProject
+  PidsProject,
+  TextureAsset
 } from '../types';
 
-const STORAGE_KEY = 'js-pids-visual-editor-mvp-project-v3';
+const STORAGE_KEY = 'js-pids-visual-editor-mvp-project-v4';
 export const DEFAULT_CANVAS_ZOOM = 8;
 export const MIN_CANVAS_ZOOM = 2;
 export const MAX_CANVAS_ZOOM = 16;
@@ -197,17 +198,19 @@ export function useEditorStore() {
     return clone.id;
   }
 
-  function addComponent(kind: 'text' | 'rect' | 'circle' | 'line', parentId = selected?.parentId === 'rowTemplate' ? 'rowTemplate' : 'root') {
+  function addComponent(kind: 'text' | 'rect' | 'texture' | 'circle' | 'line', parentId = selected?.parentId === 'rowTemplate' ? 'rowTemplate' : 'root') {
     const base = {
       id: uid(kind),
       name:
         kind === 'text'
           ? 'New Text'
           : kind === 'circle'
-            ? 'New Route Chip'
-            : kind === 'line'
+          ? 'New Route Chip'
+          : kind === 'texture'
+            ? 'New Texture'
+          : kind === 'line'
               ? 'New Line'
-              : 'New Texture',
+              : 'New Rect',
       visible: true,
       parentId,
       x: parentId === 'rowTemplate' ? 28 : 12,
@@ -244,7 +247,15 @@ export function useEditorStore() {
               binding: parentId === 'rowTemplate' ? 'arrival.routeNumber()' : 'static',
               textureId: 'jsblock:textures/block/pids/circle.png'
             }
-          : kind === 'line'
+            : kind === 'texture'
+              ? {
+                  ...base,
+                  kind: 'texture',
+                  textureId: 'jsblock:textures/block/pids/pixel.png',
+                  tint: '#ffffff',
+                  opacity: 1
+                }
+              : kind === 'line'
             ? {
                 ...base,
                 kind: 'line',
@@ -256,8 +267,7 @@ export function useEditorStore() {
                 kind: 'rect',
                 fill: '#1b2d4a',
                 stroke: '#55708f',
-                radius: 1,
-                textureId: 'jsblock:textures/block/pids/pixel.png'
+                radius: 1
               };
 
     updateProject((draft) => {
@@ -336,6 +346,26 @@ export function useEditorStore() {
     return buildResourcePackZip(project);
   }
 
+  function addAsset(asset: TextureAsset) {
+    updateProject((draft) => {
+      draft.assets = [...draft.assets.filter((item) => item.id !== asset.id), asset];
+    });
+  }
+
+  function removeAsset(assetId: string) {
+    updateProject((draft) => {
+      const removed = draft.assets.find((asset) => asset.id === assetId);
+      draft.assets = draft.assets.filter((asset) => asset.id !== assetId);
+      if (!removed) return;
+      draft.elements = draft.elements.map((element) => {
+        if (element.kind === 'texture' && element.assetId === assetId) {
+          return { ...element, assetId: undefined, textureId: 'jsblock:textures/block/pids/pixel.png' };
+        }
+        return element;
+      });
+    });
+  }
+
   return {
     project,
     selectedId,
@@ -367,6 +397,8 @@ export function useEditorStore() {
     updateElementLive,
     updateGroup,
     addComponent,
+    addAsset,
+    removeAsset,
     deleteElement,
     duplicateElement,
     copySelectedElement,

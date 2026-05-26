@@ -4,6 +4,7 @@ import type {
   BindingKey,
   BindingPreviewContext,
   CircleElement,
+  MockPlatform,
   PidsElement,
   TextElement
 } from '../types';
@@ -35,7 +36,7 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     group: 'PIDS',
     requiresArrival: false,
     preview: ({ runtime }, fallback) => runtime.stationName || fallback,
-    codegen: ({ fallbackExpression }) => `state.stationName || ${fallbackExpression}`
+    codegen: ({ fallbackExpression }) => `state.stationName || getStationName(pids, state, ${fallbackExpression})`
   },
   clock: {
     key: 'clock',
@@ -44,6 +45,14 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     requiresArrival: false,
     preview: ({ runtime }, fallback) => runtime.clock || fallback,
     codegen: ({ fallbackExpression }) => `formatClock() || ${fallbackExpression}`
+  },
+  'pids.station()': {
+    key: 'pids.station()',
+    label: 'pids.station()',
+    group: 'PIDS',
+    requiresArrival: false,
+    preview: ({ runtime }, fallback) => runtime.station?.name || fallback,
+    codegen: ({ fallbackExpression }) => `getStationName(pids, state, ${fallbackExpression})`
   },
   'pids.type': {
     key: 'pids.type',
@@ -101,6 +110,22 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     preview: ({ runtime }) => String(runtime.hidePlatformNumber),
     codegen: ({ platformHiddenVar }) => `String(${platformHiddenVar}())`
   },
+  'arrivals.mixedCarLength()': {
+    key: 'arrivals.mixedCarLength()',
+    label: 'arrivals.mixedCarLength()',
+    group: 'Arrivals',
+    requiresArrival: false,
+    preview: ({ runtime }) => String(runtime.mixedCarLength),
+    codegen: () => `String(getMixedCarLength(pids))`
+  },
+  'arrivals.platforms()': {
+    key: 'arrivals.platforms()',
+    label: 'arrivals.platforms()',
+    group: 'Arrivals',
+    requiresArrival: false,
+    preview: ({ runtime }, fallback) => formatPlatforms(runtime.platforms, fallback),
+    codegen: ({ fallbackExpression }) => `formatPlatforms(getPlatforms(pids), ${fallbackExpression})`
+  },
   rowIndex: {
     key: 'rowIndex',
     label: 'row index',
@@ -137,8 +162,28 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     preview: ({ runtime, rowIndex = 0 }, fallback) => runtime.arrivals[rowIndex]?.platformName ?? fallback,
     codegen: ({ arrivalVar, fallbackExpression }) => `safeCall(${arrivalVar}, 'platformName', ${fallbackExpression})`
   },
-  'arrival.arrivalTime()': createArrivalBinding('arrival.arrivalTime()', 'arrivalTime', 'Arrival', (arrival, fallback) => arrival?.arrivalTime ?? fallback),
-  'arrival.departureTime()': createArrivalBinding('arrival.departureTime()', 'departureTime', 'Arrival', (arrival, fallback) => arrival?.departureTime ?? fallback),
+  'arrival.arrivalTime()': {
+    key: 'arrival.arrivalTime()',
+    label: 'arrival.arrivalTime()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? formatTime(arrival.arrivalTime) : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `formatTime(safeCall(${arrivalVar}, 'arrivalTime', null), ${fallbackExpression})`
+  },
+  'arrival.departureTime()': {
+    key: 'arrival.departureTime()',
+    label: 'arrival.departureTime()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? formatTime(arrival.departureTime) : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `formatTime(safeCall(${arrivalVar}, 'departureTime', null), ${fallbackExpression})`
+  },
   'arrival.deviation()': {
     key: 'arrival.deviation()',
     label: 'arrival.deviation()',
@@ -161,6 +206,17 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     },
     codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'realtime', ${fallbackExpression}))`
   },
+  'arrival.departureIndex()': {
+    key: 'arrival.departureIndex()',
+    label: 'arrival.departureIndex()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? String(arrival.departureIndex) : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'departureIndex', ${fallbackExpression}))`
+  },
   'arrival.terminating()': {
     key: 'arrival.terminating()',
     label: 'arrival.terminating()',
@@ -171,6 +227,39 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
       return arrival ? String(arrival.terminating) : fallback;
     },
     codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'terminating', ${fallbackExpression}))`
+  },
+  'arrival.routeId()': {
+    key: 'arrival.routeId()',
+    label: 'arrival.routeId()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? String(arrival.routeId) : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'routeId', ${fallbackExpression}))`
+  },
+  'arrival.circularState()': {
+    key: 'arrival.circularState()',
+    label: 'arrival.circularState()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? arrival.circularState : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'circularState', ${fallbackExpression}))`
+  },
+  'arrival.platformId()': {
+    key: 'arrival.platformId()',
+    label: 'arrival.platformId()',
+    group: 'Arrival',
+    requiresArrival: true,
+    preview: ({ runtime, rowIndex = 0 }, fallback) => {
+      const arrival = runtime.arrivals[rowIndex];
+      return arrival ? String(arrival.platformId) : fallback;
+    },
+    codegen: ({ arrivalVar, fallbackExpression }) => `String(safeCall(${arrivalVar}, 'platformId', ${fallbackExpression}))`
   },
   'arrival.carCount()': {
     key: 'arrival.carCount()',
@@ -190,9 +279,9 @@ export const BINDING_REGISTRY: Record<BindingKey, BindingDefinition> = {
     requiresArrival: true,
     preview: ({ runtime, rowIndex = 0 }, fallback) => {
       const arrival = runtime.arrivals[rowIndex];
-      return arrival ? etaText(arrival) : fallback;
+      return arrival ? etaText(arrival, runtime.currentTime) : fallback;
     },
-    codegen: ({ arrivalVar, fallbackExpression }) => `formatEta(${arrivalVar}, ${fallbackExpression})`
+    codegen: ({ arrivalVar, fallbackExpression }) => `formatEta(${arrivalVar}, Date.now(), ${fallbackExpression})`
   },
   'computed.routeDisplay': {
     key: 'computed.routeDisplay',
@@ -253,12 +342,25 @@ export function getRouteFill(element: PidsElement, context: BindingPreviewContex
   return fallback;
 }
 
-export function etaText(arrival: ArrivalMock) {
+export function etaText(arrival: ArrivalMock, currentTime: number) {
   if (arrival.terminating) return 'Terminating';
-  const minutes = estimateMinutes(arrival.arrivalTime);
+  const minutes = estimateMinutes(arrival.arrivalTime, currentTime);
   if (minutes <= 0) return 'Arr';
   const suffix = arrival.deviation > 0 ? ` +${arrival.deviation}` : arrival.deviation < 0 ? ` ${arrival.deviation}` : '';
   return `${minutes} min${suffix}`;
+}
+
+export function formatTime(timestamp: number | null | undefined, fallback = '--:--') {
+  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) return fallback;
+  const date = new Date(timestamp);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+export function formatPlatforms(platforms: MockPlatform[], fallback = '--') {
+  if (!platforms.length) return fallback;
+  return platforms.map((platform) => platform.name).join(', ');
 }
 
 function resolveCircleBinding(element: CircleElement, context: BindingPreviewContext): string {
@@ -270,13 +372,9 @@ function resolveCircleBinding(element: CircleElement, context: BindingPreviewCon
   return resolveBinding(element.binding, context, fallback, fallback);
 }
 
-function estimateMinutes(time: string) {
-  const [, minuteText] = time.split(':');
-  const minute = Number(minuteText);
-  if (!Number.isFinite(minute)) return 0;
-  const baseMinute = 24;
-  const diff = minute - baseMinute;
-  return diff < 0 ? diff + 60 : diff;
+function estimateMinutes(timestamp: number, currentTime: number) {
+  if (!Number.isFinite(timestamp) || !Number.isFinite(currentTime)) return 0;
+  return Math.max(0, Math.round((timestamp - currentTime) / 60000));
 }
 
 function createArrivalBinding(

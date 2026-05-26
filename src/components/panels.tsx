@@ -1,8 +1,27 @@
 import { BINDING_OPTIONS } from '../editor/bindings';
-import type { ElementCondition, PidsElement, PidsProject, RectElement, TextElement, ValidationIssue } from '../types';
+import type {
+  ElementCondition,
+  PidsElement,
+  PidsProject,
+  RectElement,
+  TextElement,
+  TextureAsset,
+  TextureElement,
+  ValidationIssue
+} from '../types';
 import { ColorInput, NumberInput, PanelTitle, TextInput } from './common';
 
-export function ProjectInspector({ project, onChange }: { project: PidsProject; onChange: (patch: Partial<PidsProject>) => void }) {
+export function ProjectInspector({
+  project,
+  onChange,
+  onImportTexture,
+  onRemoveAsset
+}: {
+  project: PidsProject;
+  onChange: (patch: Partial<PidsProject>) => void;
+  onImportTexture: () => void;
+  onRemoveAsset: (assetId: string) => void;
+}) {
   return (
     <section className="panel-section inspector-stack compact-section">
       <PanelTitle title="Project" />
@@ -21,6 +40,26 @@ export function ProjectInspector({ project, onChange }: { project: PidsProject; 
         <label><input type="checkbox" checked={project.behavior.respectHideArrival} onChange={(event) => onChange({ behavior: { ...project.behavior, respectHideArrival: event.target.checked } })} /> Hide arrival</label>
         <label><input type="checkbox" checked={project.behavior.autoZOrdering} onChange={(event) => onChange({ behavior: { ...project.behavior, autoZOrdering: event.target.checked } })} /> Auto Z</label>
       </div>
+      <PanelTitle title="Texture Assets" />
+      <div className="button-row">
+        <button type="button" onClick={onImportTexture}>Import PNG</button>
+      </div>
+      {project.assets.length === 0 ? (
+        <div className="valid-state">No texture assets imported.</div>
+      ) : (
+        <div className="asset-list">
+          {project.assets.map((asset) => (
+            <div key={asset.id} className="asset-row">
+              <img src={`data:${asset.mimeType};base64,${asset.dataBase64}`} alt={asset.name} />
+              <div>
+                <strong>{asset.name}</strong>
+                <div>{asset.textureId}</div>
+              </div>
+              <button type="button" className="danger" onClick={() => onRemoveAsset(asset.id)}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -69,6 +108,7 @@ export function RepeatRowsInspector({
 export function Inspector({
   element,
   isTemplate,
+  project,
   onChange,
   onDuplicate,
   onDelete,
@@ -77,6 +117,7 @@ export function Inspector({
 }: {
   element: PidsElement;
   isTemplate: boolean;
+  project: PidsProject;
   onChange: (patch: Partial<PidsElement>) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -108,6 +149,7 @@ export function Inspector({
       )}
       {element.kind === 'text' && <TextInspector element={element} onChange={onChange as (patch: Partial<TextElement>) => void} />}
       {element.kind === 'rect' && <RectInspector element={element} onChange={onChange} />}
+      {element.kind === 'texture' && <TextureInspector element={element} assets={project.assets} onChange={onChange as (patch: Partial<TextureElement>) => void} />}
       {element.kind === 'circle' && <CircleInspector element={element} onChange={onChange} />}
       {element.kind === 'line' && <LineInspector element={element} onChange={onChange} />}
       <div className="button-row"><button onClick={onMoveDown}>Send Back</button><button onClick={onMoveUp}>Bring Front</button></div>
@@ -134,7 +176,7 @@ function TextInspector({ element, onChange }: { element: TextElement; onChange: 
       {element.overflow === 'marquee' && <NumberInput label="Marquee Duration" value={element.marqueeDuration ?? 100} onChange={(marqueeDuration) => onChange({ marqueeDuration })} />}
       <div className="check-grid"><label><input type="checkbox" checked={Boolean(element.italic)} onChange={(event) => onChange({ italic: event.target.checked })} /> Italic</label><label><input type="checkbox" checked={Boolean(element.shadow)} onChange={(event) => onChange({ shadow: event.target.checked })} /> Shadow</label></div>
       <PanelTitle title="Binding" />
-      <label className="field"><span>Binding</span><select value={element.binding} onChange={(event) => onChange({ binding: event.target.value as TextElement['binding'] })}>{BINDING_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.group} · {option.label}</option>)}</select></label>
+      <label className="field"><span>Binding</span><select value={element.binding} onChange={(event) => onChange({ binding: event.target.value as TextElement['binding'] })}>{BINDING_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.group} 路 {option.label}</option>)}</select></label>
       <NumberInput label="Fixed Row Index" value={element.rowIndex ?? 0} onChange={(rowIndex) => onChange({ rowIndex })} />
       <TextInput label="Fallback" value={element.fallback} onChange={(fallback) => onChange({ fallback })} />
     </>
@@ -144,11 +186,53 @@ function TextInspector({ element, onChange }: { element: TextElement; onChange: 
 function RectInspector({ element, onChange }: { element: RectElement; onChange: (patch: Partial<PidsElement>) => void }) {
   return (
     <>
-      <PanelTitle title="Texture / Rect Style" />
-      <TextInput label="Texture ID" value={element.textureId ?? ''} onChange={(textureId) => onChange({ textureId } as Partial<PidsElement>)} />
-      <ColorInput label="Tint / Fill" value={element.fill} onChange={(fill) => onChange({ fill } as Partial<PidsElement>)} />
+      <PanelTitle title="Rect Style" />
+      <ColorInput label="Fill" value={element.fill} onChange={(fill) => onChange({ fill } as Partial<PidsElement>)} />
       <ColorInput label="Stroke" value={element.stroke ?? '#55708f'} onChange={(stroke) => onChange({ stroke } as Partial<PidsElement>)} />
       <NumberInput label="Opacity" value={element.opacity ?? 1} onChange={(opacity) => onChange({ opacity } as Partial<PidsElement>)} />
+      <NumberInput label="Radius" value={element.radius ?? 0} onChange={(radius) => onChange({ radius } as Partial<PidsElement>)} />
+    </>
+  );
+}
+
+function TextureInspector({
+  element,
+  assets,
+  onChange
+}: {
+  element: TextureElement;
+  assets: TextureAsset[];
+  onChange: (patch: Partial<TextureElement>) => void;
+}) {
+  return (
+    <>
+      <PanelTitle title="Texture Style" />
+      <label className="field">
+        <span>Asset</span>
+        <select
+          value={element.assetId ?? ''}
+          onChange={(event) => {
+            const asset = assets.find((item) => item.id === event.target.value);
+            onChange({
+              assetId: asset?.id,
+              textureId: asset?.textureId ?? element.textureId
+            });
+          }}
+        >
+          <option value="">Use texture ID only</option>
+          {assets.map((asset) => (
+            <option key={asset.id} value={asset.id}>{asset.name}</option>
+          ))}
+        </select>
+      </label>
+      <TextInput label="Texture ID" value={element.textureId} onChange={(textureId) => onChange({ textureId })} />
+      <ColorInput label="Tint" value={element.tint ?? '#ffffff'} onChange={(tint) => onChange({ tint })} />
+      <NumberInput label="Opacity" value={element.opacity ?? 1} onChange={(opacity) => onChange({ opacity })} />
+      {element.assetId && assets.find((asset) => asset.id === element.assetId) && (
+        <div className="asset-preview-inline">
+          <img src={`data:image/png;base64,${assets.find((asset) => asset.id === element.assetId)!.dataBase64}`} alt={element.name} />
+        </div>
+      )}
     </>
   );
 }
@@ -158,7 +242,7 @@ function CircleInspector({ element, onChange }: { element: Extract<PidsElement, 
     <>
       <PanelTitle title="Route Chip" />
       <TextInput label="Fallback Text" value={element.text ?? ''} onChange={(text) => onChange({ text } as Partial<PidsElement>)} />
-      <label className="field"><span>Binding</span><select value={element.binding ?? 'static'} onChange={(event) => onChange({ binding: event.target.value as TextElement['binding'] } as Partial<PidsElement>)}>{BINDING_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.group} · {option.label}</option>)}</select></label>
+      <label className="field"><span>Binding</span><select value={element.binding ?? 'static'} onChange={(event) => onChange({ binding: event.target.value as TextElement['binding'] } as Partial<PidsElement>)}>{BINDING_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.group} 路 {option.label}</option>)}</select></label>
       <TextInput label="Texture ID" value={element.textureId ?? ''} onChange={(textureId) => onChange({ textureId } as Partial<PidsElement>)} />
       <ColorInput label="Fill" value={element.fill} onChange={(fill) => onChange({ fill } as Partial<PidsElement>)} />
       <ColorInput label="Text Color" value={element.textColor ?? '#ffffff'} onChange={(textColor) => onChange({ textColor } as Partial<PidsElement>)} />

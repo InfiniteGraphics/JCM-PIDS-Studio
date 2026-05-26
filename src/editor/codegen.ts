@@ -12,6 +12,7 @@ import type {
   PidsProject,
   RectElement,
   ResourcePackManifest,
+  TextureElement,
   TextElement
 } from '../types';
 import { resolveBindingCode } from './bindings';
@@ -72,6 +73,7 @@ export function buildResourcePackManifest(project: PidsProject): ResourcePackMan
       scriptZipPath,
       `assets/${project.resourceNamespace}/textures/block/pids/pixel.png`,
       `assets/${project.resourceNamespace}/textures/block/pids/circle.png`,
+      ...project.assets.map((asset) => asset.zipPath),
       projectMetadataPath,
       'pack.mcmeta'
     ]
@@ -252,6 +254,8 @@ function generateElement(element: PidsElement, mode: 'absolute' | 'row') {
       return generateText(element, mode);
     case 'rect':
       return generateRect(element, mode);
+    case 'texture':
+      return generateTexture(element, mode);
     case 'line':
       return generateLine(element, mode);
     case 'circle':
@@ -286,10 +290,24 @@ function generateText(element: TextElement, mode: 'absolute' | 'row') {
 function generateRect(element: RectElement, mode: 'absolute' | 'row') {
   const lines = [
     `Texture.create(${q(element.name)})`,
-    `  ${emitTextureCall('texture', [q(element.textureId || 'jsblock:textures/block/pids/pixel.png')]).slice(1)}`,
+    `  ${emitTextureCall('texture', [q('jsblock:textures/block/pids/pixel.png')]).slice(1)}`,
     `  ${emitTextureCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
     `  ${emitTextureCall('size', [literal(round(element.w)), literal(round(element.h))]).slice(1)}`,
     `  ${emitTextureCall('color', [colorToJcm(element.fill)]).slice(1)}`,
+    element.uv ? `  ${emitTextureCall('uv', element.uv.map((value) => literal(round(value)))).slice(1)}` : '',
+    `  ${emitTextureCall('draw', ['ctx']).slice(1)}`
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+function generateTexture(element: TextureElement, mode: 'absolute' | 'row') {
+  const tint = element.tint ? colorToJcm(element.tint, '#ffffff') : '0xFFFFFF';
+  const lines = [
+    `Texture.create(${q(element.name)})`,
+    `  ${emitTextureCall('texture', [q(element.textureId)]).slice(1)}`,
+    `  ${emitTextureCall('pos', [literal(round(element.x)), textYExpression(element, mode)]).slice(1)}`,
+    `  ${emitTextureCall('size', [literal(round(element.w)), literal(round(element.h))]).slice(1)}`,
+    `  ${emitTextureCall('color', [tint]).slice(1)}`,
     element.uv ? `  ${emitTextureCall('uv', element.uv.map((value) => literal(round(value)))).slice(1)}` : '',
     `  ${emitTextureCall('draw', ['ctx']).slice(1)}`
   ].filter(Boolean);

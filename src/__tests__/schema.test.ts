@@ -15,7 +15,7 @@ describe('project schema', () => {
   it('parses a current project json', () => {
     const project = createDefaultProject();
     const parsed = parseProjectJson(JSON.stringify(project));
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(3);
     expect(parsed.scriptPath).toBe('scripts/pids/custom_pids.js');
   });
 

@@ -121,7 +121,7 @@ export function LeftSidebar({
   onSetDragLayerId: (id: string | null) => void;
   onToggleGroupVisibility: (id: string) => void;
   onToggleGroupExpanded: (id: string) => void;
-  onAddComponent: (kind: 'text' | 'rect' | 'circle' | 'line', parentId: string) => void;
+  onAddComponent: (kind: 'text' | 'rect' | 'texture' | 'circle' | 'line', parentId: string) => void;
   onToggleVisible: (element: PidsElement) => void;
   onToggleLocked: (element: PidsElement) => void;
   onDeleteElement: (id: string) => void;
@@ -135,12 +135,14 @@ export function LeftSidebar({
           <PanelTitle title="Component Library" />
           <div className="component-grid-label">Global layers</div>
           <ComponentButton icon="T" label="Text" onClick={() => onAddComponent('text', 'root')} />
-          <ComponentButton icon="R" label="Texture / Rect" onClick={() => onAddComponent('rect', 'root')} />
+          <ComponentButton icon="R" label="Rect" onClick={() => onAddComponent('rect', 'root')} />
+          <ComponentButton icon="I" label="Texture" onClick={() => onAddComponent('texture', 'root')} />
           <ComponentButton icon="C" label="Route Chip" onClick={() => onAddComponent('circle', 'root')} />
           <ComponentButton icon="L" label="Line" onClick={() => onAddComponent('line', 'root')} />
           <div className="component-grid-label">Repeat row template</div>
           <ComponentButton icon="T" label="Row Text" onClick={() => onAddComponent('text', 'rowTemplate')} />
-          <ComponentButton icon="R" label="Row Texture" onClick={() => onAddComponent('rect', 'rowTemplate')} />
+          <ComponentButton icon="R" label="Row Rect" onClick={() => onAddComponent('rect', 'rowTemplate')} />
+          <ComponentButton icon="I" label="Row Texture" onClick={() => onAddComponent('texture', 'rowTemplate')} />
           <ComponentButton icon="C" label="Row Route Chip" onClick={() => onAddComponent('circle', 'rowTemplate')} />
           <ComponentButton icon="L" label="Row Line" onClick={() => onAddComponent('line', 'rowTemplate')} />
           <ComponentButton icon="S" label="Repeat Rows Settings" hint="pids.rows loop" onClick={() => onSetSelectedId('__repeatRows')} />
@@ -181,7 +183,7 @@ export function LeftSidebar({
                     }}
                     onClick={() => onSetSelectedId(element.id)}
                   >
-                    <span className="layer-icon">{element.kind === 'text' ? 'T' : element.kind === 'circle' ? 'C' : element.kind === 'line' ? 'L' : 'R'}</span>
+                    <span className="layer-icon">{element.kind === 'text' ? 'T' : element.kind === 'circle' ? 'C' : element.kind === 'line' ? 'L' : element.kind === 'texture' ? 'I' : 'R'}</span>
                     <span>
                       {element.name}
                       {element.parentId === project.repeatRows.groupId && <small>{element.condition ?? 'always'}</small>}

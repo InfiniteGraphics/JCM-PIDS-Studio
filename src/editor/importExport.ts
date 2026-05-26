@@ -41,6 +41,10 @@ export async function buildResourcePackZip(project: PidsProject): Promise<Resour
     )
   };
 
+  project.assets.forEach((asset) => {
+    files[asset.zipPath] = base64ToBytes(asset.dataBase64);
+  });
+
   Object.keys(files).forEach(validateZipPath);
 
   return {

@@ -71,8 +71,14 @@ export function validateProject(project: PidsProject): ValidationIssue[] {
       if (!isColor(element.fill)) {
         issues.push(elementIssue('error', 'INVALID_RECT_FILL', element.id, `${element.name} has an invalid fill color.`));
       }
+    }
+
+    if (element.kind === 'texture') {
       if (!element.textureId) {
-        issues.push(elementIssue('warning', 'RECT_USING_PLACEHOLDER_TEXTURE', element.id, `${element.name} has no texture id; pixel.png will be used.`));
+        issues.push(elementIssue('error', 'TEXTURE_ID_MISSING', element.id, `${element.name} is missing a texture id.`));
+      }
+      if (element.tint && !isColor(element.tint)) {
+        issues.push(elementIssue('error', 'INVALID_TEXTURE_TINT', element.id, `${element.name} has an invalid tint color.`));
       }
     }
 
@@ -180,7 +186,7 @@ function usesArrivalBinding(element: PidsElement) {
 }
 
 function isExportableElement(element: PidsElement) {
-  if (element.kind === 'text' || element.kind === 'rect' || element.kind === 'circle') return true;
+  if (element.kind === 'text' || element.kind === 'rect' || element.kind === 'texture' || element.kind === 'circle') return true;
   if (element.kind === 'line') return isOrthogonalLine(element);
   return false;
 }

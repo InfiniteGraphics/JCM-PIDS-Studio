@@ -37,6 +37,7 @@ export const ALLOWED_TEXTURE_METHODS = [
   'texture',
   'color',
   'uv',
+  'matrices',
   'draw',
   'zOrder'
 ] as const;
@@ -47,6 +48,7 @@ export const ALLOWED_CTX_METHODS = [
 ] as const;
 
 export const ALLOWED_PIDS_MEMBERS = [
+  'station',
   'type',
   'width',
   'height',
@@ -67,7 +69,11 @@ export const ALLOWED_ARRIVAL_METHODS = [
   'departureTime',
   'deviation',
   'realtime',
+  'departureIndex',
   'terminating',
+  'routeId',
+  'circularState',
+  'platformId',
   'carCount'
 ] as const;
 

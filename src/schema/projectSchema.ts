@@ -1,10 +1,15 @@
 import { createDefaultProject } from '../editor/defaultProject';
-import type { PidsElement, PidsProject, ProjectImportResult } from '../types';
+import type { PidsElement, PidsProject, ProjectImportResult, TextureAsset, TextureElement } from '../types';
 
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
 const RESOURCE_NAMESPACE_PATTERN = /^[a-z0-9_.-]+$/;
 const METADATA_PREFIX = '@js-pids-editor-project:';
+
+type LegacyProjectV2 = Omit<PidsProject, 'schemaVersion' | 'assets'> & {
+  schemaVersion: 2;
+  assets?: TextureAsset[];
+};
 
 export function parseProjectJson(text: string): PidsProject {
   const parsed = JSON.parse(text) as unknown;
@@ -24,14 +29,17 @@ export function migrateProject(input: unknown): PidsProject {
   if (schemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new Error(`Unsupported schemaVersion ${schemaVersion}. Current editor supports up to ${CURRENT_SCHEMA_VERSION}.`);
   }
-  if (schemaVersion !== CURRENT_SCHEMA_VERSION) {
-    throw new Error(`Unsupported schemaVersion ${schemaVersion}. Automatic migration is only defined for version ${CURRENT_SCHEMA_VERSION}.`);
+  if (schemaVersion === CURRENT_SCHEMA_VERSION) {
+    const project = candidate as unknown as PidsProject;
+    validateProjectShape(project);
+    return normalizeProject(project);
   }
 
-  const project = candidate as unknown as PidsProject;
-  validateProjectShape(project);
+  if (schemaVersion === 2) {
+    return migrateV2Project(candidate);
+  }
 
-  return normalizeProject(project);
+  throw new Error(`Unsupported schemaVersion ${schemaVersion}. Automatic migration is only defined for version 2 and ${CURRENT_SCHEMA_VERSION}.`);
 }
 
 export function importEmbeddedProjectMetadata(text: string): PidsProject {
@@ -143,6 +151,9 @@ function normalizeProject(project: PidsProject): PidsProject {
     expanded: group.expanded ?? true
   }));
 
+  clone.assets = Array.isArray(clone.assets)
+    ? clone.assets.map((asset) => normalizeAsset(asset, clone.resourceNamespace))
+    : [];
   clone.elements = clone.elements.map(normalizeElement);
 
   return clone;
@@ -152,6 +163,10 @@ function normalizeElement(element: PidsElement): PidsElement {
   const clone = structuredClone(element);
   clone.visible = Boolean(clone.visible);
   clone.parentId = clone.parentId ?? 'root';
+  if (clone.kind === 'texture') {
+    clone.textureId = clone.textureId.trim();
+    clone.tint = clone.tint || '#ffffff';
+  }
   return clone;
 }
 
@@ -163,8 +178,80 @@ function validateProjectShape(project: PidsProject) {
   if (!project.canvas || typeof project.canvas.width !== 'number' || typeof project.canvas.height !== 'number') {
     throw new Error('Project canvas is invalid.');
   }
+  if (!Array.isArray(project.assets)) throw new Error('Project assets must be an array.');
   if (!project.repeatRows || typeof project.repeatRows.groupId !== 'string') throw new Error('Project repeatRows is invalid.');
   if (!project.behavior) throw new Error('Project behavior is invalid.');
+}
+
+function migrateV2Project(candidate: Record<string, unknown>): PidsProject {
+  const legacy = structuredClone(candidate) as Record<string, unknown>;
+  const project = legacy as unknown as LegacyProjectV2;
+  validateLegacyV2Shape(project);
+
+  const next = createDefaultProject();
+  next.name = project.name;
+  next.preset = project.preset;
+  next.resourceNamespace = project.resourceNamespace;
+  next.scriptPath = project.scriptPath;
+  next.canvas = structuredClone(project.canvas);
+  next.groups = structuredClone(project.groups);
+  next.repeatRows = structuredClone(project.repeatRows);
+  next.behavior = structuredClone(project.behavior);
+  next.assets = [];
+  next.elements = project.elements.map((element) => migrateElementFromV2(element as unknown as Record<string, unknown>));
+  return normalizeProject(next);
+}
+
+function validateLegacyV2Shape(project: LegacyProjectV2) {
+  if (!project.name || typeof project.name !== 'string') throw new Error('Project name is required.');
+  if (!project.preset || typeof project.preset !== 'string') throw new Error('Project preset is required.');
+  if (!Array.isArray(project.groups)) throw new Error('Project groups must be an array.');
+  if (!Array.isArray(project.elements)) throw new Error('Project elements must be an array.');
+  if (!project.canvas || typeof project.canvas.width !== 'number' || typeof project.canvas.height !== 'number') {
+    throw new Error('Project canvas is invalid.');
+  }
+  if (!project.repeatRows || typeof project.repeatRows.groupId !== 'string') throw new Error('Project repeatRows is invalid.');
+  if (!project.behavior) throw new Error('Project behavior is invalid.');
+}
+
+function migrateElementFromV2(raw: Record<string, unknown>): PidsElement {
+  if (raw.kind === 'rect' && typeof raw.textureId === 'string' && raw.textureId.trim() && raw.textureId !== 'jsblock:textures/block/pids/pixel.png') {
+    const migrated: TextureElement = {
+      id: String(raw.id),
+      kind: 'texture',
+      name: String(raw.name),
+      visible: Boolean(raw.visible),
+      locked: Boolean(raw.locked),
+      parentId: typeof raw.parentId === 'string' ? raw.parentId : 'root',
+      x: Number(raw.x),
+      y: Number(raw.y),
+      w: Number(raw.w),
+      h: Number(raw.h),
+      z: Number(raw.z),
+      condition: raw.condition as TextureElement['condition'],
+      textureId: String(raw.textureId),
+      opacity: typeof raw.opacity === 'number' ? raw.opacity : 1,
+      uv: Array.isArray(raw.uv) ? raw.uv as [number, number, number, number] : undefined,
+      tint: '#ffffff'
+    };
+    return migrated;
+  }
+
+  const clone = structuredClone(raw) as unknown as PidsElement;
+  if (clone.kind === 'rect' && 'textureId' in clone) {
+    delete (clone as PidsElement & { textureId?: string }).textureId;
+  }
+  return clone;
+}
+
+function normalizeAsset(asset: TextureAsset, namespace: string): TextureAsset {
+  const clone = structuredClone(asset);
+  clone.textureId = clone.textureId.trim();
+  clone.zipPath = clone.zipPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!clone.textureId.includes(':')) {
+    clone.textureId = `${namespace}:${clone.textureId}`;
+  }
+  return clone;
 }
 
 function decodeBase64Utf8(value: string) {

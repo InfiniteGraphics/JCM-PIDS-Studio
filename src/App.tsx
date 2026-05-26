@@ -3,19 +3,20 @@ import { CanvasWorkbench } from './components/canvasView';
 import { LeftSidebar, SCENARIOS, TopToolbar } from './components/layout';
 import { StatusNotice, Tabs } from './components/common';
 import { Inspector, ProjectInspector, RepeatRowsInspector, ValidationPanel } from './components/panels';
-import { getRenderedElements } from './canvas/rendering';
-import { clamp, round } from './canvas/rendering';
+import { clamp, getRenderedElements, round } from './canvas/rendering';
 import { resizeFromHandle, type ResizeHandle } from './canvas/resize';
+import { safePresetId, uid } from './editor/defaultProject';
 import { importProjectText } from './editor/importExport';
 import { issueSummary } from './editor/validation';
 import { DEFAULT_CANVAS_ZOOM, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, useEditorStore } from './store/editorStore';
-import type { PidsElement } from './types';
+import type { PidsElement, TextureAsset } from './types';
 
 const GRID_SIZE = 0.5;
 
 export default function App() {
   const store = useEditorStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textureInputRef = useRef<HTMLInputElement | null>(null);
   const [leftTab, setLeftTab] = useState<'Components' | 'Layers'>('Components');
   const [rightTab, setRightTab] = useState<'Properties' | 'Bindings' | 'Style'>('Properties');
   const [dragLayerId, setDragLayerId] = useState<string | null>(null);
@@ -26,6 +27,13 @@ export default function App() {
   const renderedElements = useMemo(() => getRenderedElements(store.project, store.runtime), [store.project, store.runtime]);
   const validationSummary = useMemo(() => issueSummary(store.validationIssues), [store.validationIssues]);
   const compatibilitySummary = useMemo(() => issueSummary(store.compatibilityIssues), [store.compatibilityIssues]);
+  const assetUrls = useMemo(
+    () =>
+      Object.fromEntries(
+        store.project.assets.map((asset) => [asset.id, `data:${asset.mimeType};base64,${asset.dataBase64}`])
+      ),
+    [store.project.assets]
+  );
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -121,6 +129,37 @@ export default function App() {
       }
     };
     reader.readAsText(file);
+  }
+
+  function handleImportTexture(file: File) {
+    if (file.type !== 'image/png') {
+      setStatusMessage({ tone: 'error', text: '目前只支持导入 PNG 图片。' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || '');
+      const prefix = 'base64,';
+      const index = raw.indexOf(prefix);
+      if (index === -1) {
+        setStatusMessage({ tone: 'error', text: 'PNG 读取失败。' });
+        return;
+      }
+      const baseName = file.name.replace(/\.png$/i, '');
+      const safeName = safePresetId(baseName);
+      const asset: TextureAsset = {
+        id: uid('asset'),
+        name: baseName,
+        textureId: `${store.project.resourceNamespace}:textures/imported/${safeName}.png`,
+        zipPath: `assets/${store.project.resourceNamespace}/textures/imported/${safeName}.png`,
+        mimeType: 'image/png',
+        dataBase64: raw.slice(index + prefix.length)
+      };
+      store.addAsset(asset);
+      setStatusMessage({ tone: 'success', text: `已导入图片：${file.name}` });
+    };
+    reader.readAsDataURL(file);
   }
 
   function pointerToCanvas(event: React.PointerEvent<SVGElement>) {
@@ -248,6 +287,17 @@ export default function App() {
           event.currentTarget.value = '';
         }}
       />
+      <input
+        ref={textureInputRef}
+        type="file"
+        accept="image/png,.png"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) handleImportTexture(file);
+          event.currentTarget.value = '';
+        }}
+      />
 
       {statusMessage && (
         <div className="status-banner">
@@ -280,6 +330,7 @@ export default function App() {
           <CanvasWorkbench
             project={store.project}
             runtime={store.runtime}
+            assetUrls={assetUrls}
             scenario={store.scenario}
             zoom={store.zoom}
             renderedElements={renderedElements}
@@ -310,13 +361,19 @@ export default function App() {
           <Tabs active={rightTab} items={['Properties', 'Bindings', 'Style']} onChange={(tab) => setRightTab(tab as 'Properties' | 'Bindings' | 'Style')} />
           {rightTab === 'Properties' && (
             <>
-              <ProjectInspector project={store.project} onChange={(patch) => store.updateProject((draft) => Object.assign(draft, patch))} />
+              <ProjectInspector
+                project={store.project}
+                onChange={(patch) => store.updateProject((draft) => Object.assign(draft, patch))}
+                onImportTexture={() => textureInputRef.current?.click()}
+                onRemoveAsset={store.removeAsset}
+              />
               {store.selectedId === '__repeatRows' ? (
                 <RepeatRowsInspector project={store.project} onChange={(patch) => store.updateProject((draft) => { draft.repeatRows = { ...draft.repeatRows, ...patch }; })} />
               ) : store.selected ? (
                 <Inspector
                   element={store.selected}
                   isTemplate={store.selected.parentId === store.project.repeatRows.groupId}
+                  project={store.project}
                   onChange={(patch) => store.updateElement(store.selected!.id, patch)}
                   onDuplicate={() => store.duplicateElement(store.selected!.id)}
                   onDelete={() => store.deleteElement(store.selected!.id)}
@@ -355,4 +412,3 @@ export default function App() {
     </div>
   );
 }
-

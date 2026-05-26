@@ -25,8 +25,7 @@ const elements: PidsElement[] = [
     z: 0,
     fill: '#08111f',
     stroke: '#41536f',
-    radius: 1,
-    textureId: 'jsblock:textures/block/pids/pixel.png'
+    radius: 1
   },
   {
     id: 'header_bg',
@@ -40,7 +39,7 @@ const elements: PidsElement[] = [
     h: 14,
     z: 1,
     fill: '#0d1f3a',
-    textureId: 'jsblock:textures/block/pids/pixel.png'
+    radius: 0
   },
   {
     id: 'station_title',
@@ -191,8 +190,7 @@ const elements: PidsElement[] = [
     z: 10,
     fill: '#0c1522',
     opacity: 0.82,
-    condition: 'always',
-    textureId: 'jsblock:textures/block/pids/pixel.png'
+    condition: 'always'
   },
   {
     id: 'route_chip_template',
@@ -296,8 +294,7 @@ const elements: PidsElement[] = [
     stroke: '#6f7481',
     radius: 1.2,
     opacity: 0.95,
-    condition: 'customMessage',
-    textureId: 'jsblock:textures/block/pids/pixel.png'
+    condition: 'customMessage'
   },
   {
     id: 'custom_message_template',
@@ -367,7 +364,7 @@ const elements: PidsElement[] = [
 export function createDefaultProject(): PidsProject {
   nextId = 1000;
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Untitled PIDS Preset',
     preset: 'rv_pids',
     resourceNamespace: 'jsblock',
@@ -403,6 +400,7 @@ export function createDefaultProject(): PidsProject {
       { id: 'rowTemplate', name: 'Arrival Rows Template', visible: true, children: elements.filter((element) => element.parentId === 'rowTemplate').map((element) => element.id) },
       { id: 'footer', name: 'Footer', visible: true, children: ['footer_left', 'footer_right'] }
     ],
+    assets: [],
     elements: JSON.parse(JSON.stringify(elements)) as PidsElement[]
   };
 }

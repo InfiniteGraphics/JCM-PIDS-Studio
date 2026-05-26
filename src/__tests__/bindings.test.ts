@@ -7,6 +7,8 @@ describe('binding registry', () => {
     const runtime = getMockRuntime('normal');
     expect(resolveBinding('arrival.destination()', { runtime, rowIndex: 0 }, '--')).toBe('Airport');
     expect(resolveBinding('computed.realtimeBadge', { runtime, rowIndex: 0 }, '--')).toBe('RT');
+    expect(resolveBinding('pids.station()', { runtime }, '--')).toBe('Central Station');
+    expect(resolveBinding('arrivals.platforms()', { runtime }, '--')).toBe('1, 2, 3, 4');
   });
 
   it('marks arrival bindings correctly', () => {

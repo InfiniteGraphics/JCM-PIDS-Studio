@@ -1,62 +1,110 @@
-import type { MockRuntime, MockScenario } from '../types';
+import type { ArrivalMock, MockPlatform, MockRuntime, MockScenario, MockStation } from '../types';
 
-const baseArrivals = [
+const CURRENT_TIME = Date.parse('2026-05-26T10:24:00+08:00');
+const STATION: MockStation = {
+  id: 101,
+  name: 'Central Station'
+};
+
+const PLATFORMS: MockPlatform[] = [
+  { id: 1, name: '1', stationId: STATION.id, stationName: STATION.name, destination: 'Airport' },
+  { id: 2, name: '2', stationId: STATION.id, stationName: STATION.name, destination: 'Downtown' },
+  { id: 3, name: '3', stationId: STATION.id, stationName: STATION.name, destination: 'Harborfront' },
+  { id: 4, name: '4', stationId: STATION.id, stationName: STATION.name, destination: 'Tech Park' }
+];
+
+const baseArrivals: ArrivalMock[] = [
   {
+    routeId: 301,
     routeName: 'Airport Express',
     routeNumber: 'A',
     routeColor: '#1769d7',
     destination: 'Airport',
-    arrivalTime: '10:26',
-    departureTime: '10:27',
+    arrivalTime: Date.parse('2026-05-26T10:26:00+08:00'),
+    departureTime: Date.parse('2026-05-26T10:27:00+08:00'),
     deviation: 0,
     realtime: true,
+    departureIndex: 0,
     terminating: false,
+    circularState: 'NONE',
+    platformId: 1,
     platformName: '1',
-    carCount: 8
+    carCount: 8,
+    cars: [
+      { vehicleId: 'A1', occupancy: 0.41 },
+      { vehicleId: 'A2', occupancy: 0.55 },
+      { vehicleId: 'A3', occupancy: 0.48 }
+    ]
   },
   {
+    routeId: 302,
     routeName: 'Harbor Line',
     routeNumber: 'C',
     routeColor: '#159947',
     destination: 'Harborfront',
-    arrivalTime: '10:30',
-    departureTime: '10:31',
+    arrivalTime: Date.parse('2026-05-26T10:30:00+08:00'),
+    departureTime: Date.parse('2026-05-26T10:31:00+08:00'),
     deviation: 1,
     realtime: true,
+    departureIndex: 1,
     terminating: false,
+    circularState: 'CLOCKWISE',
+    platformId: 3,
     platformName: '3',
-    carCount: 6
+    carCount: 6,
+    cars: [
+      { vehicleId: 'C1', occupancy: 0.31 },
+      { vehicleId: 'C2', occupancy: 0.28 }
+    ]
   },
   {
+    routeId: 303,
     routeName: 'Downtown Line',
     routeNumber: 'B',
     routeColor: '#c45a1c',
     destination: 'Downtown',
-    arrivalTime: '10:33',
-    departureTime: '10:34',
+    arrivalTime: Date.parse('2026-05-26T10:33:00+08:00'),
+    departureTime: Date.parse('2026-05-26T10:34:00+08:00'),
     deviation: 0,
     realtime: false,
+    departureIndex: 2,
     terminating: false,
+    circularState: 'NONE',
+    platformId: 2,
     platformName: '2',
-    carCount: 8
+    carCount: 8,
+    cars: [
+      { vehicleId: 'B1', occupancy: 0.72 },
+      { vehicleId: 'B2', occupancy: 0.69 }
+    ]
   },
   {
+    routeId: 304,
     routeName: 'Tech Park Shuttle',
     routeNumber: 'D',
     routeColor: '#6c35c9',
     destination: 'Tech Park',
-    arrivalTime: '10:39',
-    departureTime: '10:40',
+    arrivalTime: Date.parse('2026-05-26T10:39:00+08:00'),
+    departureTime: Date.parse('2026-05-26T10:40:00+08:00'),
     deviation: -1,
     realtime: true,
+    departureIndex: 3,
     terminating: false,
+    circularState: 'COUNTERCLOCKWISE',
+    platformId: 4,
     platformName: '4',
-    carCount: 4
+    carCount: 4,
+    cars: [
+      { vehicleId: 'D1', occupancy: 0.18 }
+    ]
   }
 ];
 
 function cloneBase() {
-  return baseArrivals.map((arrival) => ({ ...arrival }));
+  return baseArrivals.map((arrival) => ({
+    ...arrival,
+    cars: arrival.cars.map((car) => ({ ...car }))
+  }));
 }
 
 export function getMockRuntime(scenario: MockScenario): MockRuntime {
@@ -66,11 +114,15 @@ export function getMockRuntime(scenario: MockScenario): MockRuntime {
     width: 136,
     height: 76,
     rows: 4,
-    stationName: 'Central Station',
+    currentTime: CURRENT_TIME,
+    stationName: STATION.name,
+    station: STATION,
     clock: '10:24',
     customMessages: ['', '', '', ''],
     hiddenRows: [],
     hidePlatformNumber: false,
+    mixedCarLength: false,
+    platforms: PLATFORMS.map((platform) => ({ ...platform })),
     arrivals
   };
 
@@ -96,7 +148,12 @@ export function getMockRuntime(scenario: MockScenario): MockRuntime {
   }
 
   if (scenario === 'terminating') {
-    runtime.arrivals[2] = { ...arrivals[2], terminating: true, destination: 'This train terminates here', deviation: 3 };
+    runtime.arrivals[2] = {
+      ...arrivals[2],
+      terminating: true,
+      destination: 'This train terminates here',
+      deviation: 3
+    };
   }
 
   return runtime;
