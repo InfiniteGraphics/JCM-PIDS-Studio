@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultProject } from '../editor/defaultProject';
+import { createDefaultProject, createDemoProject } from '../editor/defaultProject';
 import {
   assertValidScriptPath,
   buildScriptResourceId,
@@ -17,6 +17,10 @@ describe('project schema', () => {
     const parsed = parseProjectJson(JSON.stringify(project));
     expect(parsed.schemaVersion).toBe(3);
     expect(parsed.scriptPath).toBe('scripts/pids/custom_pids.js');
+    expect(parsed.groups.filter((group) => group.id !== parsed.repeatRows.groupId)).toHaveLength(1);
+    expect(parsed.elements).toHaveLength(0);
+    expect(parsed.repeatRows.direction).toBe('vertical');
+    expect(parsed.repeatRows.gap).toBe(0);
   });
 
   it('rejects unsupported future schema versions', () => {
@@ -34,7 +38,7 @@ describe('project schema', () => {
   });
 
   it('restores embedded metadata from generated js', () => {
-    const project = createDefaultProject();
+    const project = createDemoProject();
     const script = generatePidsScript(project);
     const restored = importEmbeddedProjectMetadata(script);
     expect(restored.name).toBe(project.name);
@@ -42,9 +46,10 @@ describe('project schema', () => {
   });
 
   it('normalizes invalid numeric fields from stored projects', () => {
-    const project = createDefaultProject();
+    const project = createDemoProject();
     const restored = migrateProject({
       ...project,
+      guides: [{ id: '', axis: 'x', value: null }],
       elements: project.elements.map((element) =>
         element.id === 'destination_template'
           ? { ...element, y: null, w: null, fontSize: null }
@@ -53,8 +58,31 @@ describe('project schema', () => {
     });
     const target = restored.elements.find((element) => element.id === 'destination_template');
     expect(target?.y).toBe(0);
-    expect(target?.w).toBe(54);
-    expect(target?.kind === 'text' ? target.fontSize : undefined).toBe(6.4);
+    expect(target?.w).toBe(1);
+    expect(target?.kind === 'text' ? target.fontSize : undefined).toBe(5);
+    expect(restored.guides[0]).toEqual({ id: 'guide_1', axis: 'x', value: 0 });
+  });
+
+  it('merges legacy global groups into editable layers', () => {
+    const project = createDemoProject();
+    const restored = migrateProject({
+      ...project,
+      groups: [
+        { id: 'root', name: 'Root', visible: true, children: ['bg'] },
+        { id: 'header', name: 'Header', visible: true, children: ['header_bg', 'station_title'] },
+        { id: 'rowTemplate', name: 'Arrival Rows Template', visible: true, children: project.groups.find((group) => group.id === 'rowTemplate')?.children ?? [] },
+        { id: 'footer', name: 'Footer', visible: true, children: ['footer_left', 'footer_right'] }
+      ],
+      elements: project.elements.map((element) => {
+        if (['header_bg', 'station_title'].includes(element.id)) return { ...element, parentId: 'header' };
+        if (['footer_left', 'footer_right'].includes(element.id)) return { ...element, parentId: 'footer' };
+        return element;
+      })
+    });
+
+    expect(restored.groups.filter((group) => group.id !== restored.repeatRows.groupId)).toHaveLength(3);
+    expect(restored.elements.find((element) => element.id === 'header_bg')?.parentId).toBe('header');
+    expect(restored.elements.find((element) => element.id === 'footer_left')?.parentId).toBe('footer');
   });
 
   it('uses the updated canvas zoom defaults', () => {

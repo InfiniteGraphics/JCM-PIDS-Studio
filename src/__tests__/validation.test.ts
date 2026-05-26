@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultProject } from '../editor/defaultProject';
+import { createDefaultProject, createDemoProject } from '../editor/defaultProject';
 import { checkJcmCompatibility, validateProject } from '../editor/validation';
 import { buildResourcePackManifest, generatePidsScript } from '../editor/codegen';
 
@@ -15,7 +15,7 @@ describe('validation', () => {
   });
 
   it('reports duplicate ids and missing parent groups', () => {
-    const project = createDefaultProject();
+    const project = createDemoProject();
     project.elements[1].id = project.elements[0].id;
     project.elements[1].parentId = 'missing-group';
     const issues = validateProject(project);
@@ -25,7 +25,7 @@ describe('validation', () => {
   });
 
   it('flags non-orthogonal lines for compatibility', () => {
-    const project = createDefaultProject();
+    const project = createDemoProject();
     project.elements.push({
       id: 'diag',
       kind: 'line',
@@ -46,7 +46,7 @@ describe('validation', () => {
   });
 
   it('does not treat plain JavaScript helpers as unsupported JCM API calls', () => {
-    const project = createDefaultProject();
+    const project = createDemoProject();
     const issues = checkJcmCompatibility(project, generatePidsScript(project), buildResourcePackManifest(project));
 
     expect(issues.some((issue) => issue.code === 'JCM_API_NOT_ALLOWED')).toBe(false);

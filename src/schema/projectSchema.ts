@@ -159,8 +159,12 @@ function normalizeProject(project: PidsProject): PidsProject {
   clone.repeatRows = {
     ...defaults.repeatRows,
     ...clone.repeatRows,
+    startX: normalizeNumber(clone.repeatRows?.startX, defaults.repeatRows.startX),
     startY: normalizeNumber(clone.repeatRows?.startY, defaults.repeatRows.startY),
+    rowWidth: normalizeNumber(clone.repeatRows?.rowWidth, defaults.repeatRows.rowWidth, 0.5),
     rowHeight: normalizeNumber(clone.repeatRows?.rowHeight, defaults.repeatRows.rowHeight, 0.5),
+    direction: clone.repeatRows?.direction === 'horizontal' ? 'horizontal' : 'vertical',
+    gap: normalizeNumber(clone.repeatRows?.gap, defaults.repeatRows.gap, 0),
     maxRows: normalizeNumber(clone.repeatRows?.maxRows, defaults.repeatRows.maxRows, 1),
     countSource: clone.repeatRows?.countSource === 'fixed' ? 'fixed' : 'pids.rows'
   };
@@ -172,7 +176,17 @@ function normalizeProject(project: PidsProject): PidsProject {
   clone.assets = Array.isArray(clone.assets)
     ? clone.assets.map((asset) => normalizeAsset(asset, clone.resourceNamespace))
     : [];
+  clone.guides = Array.isArray(clone.guides)
+    ? clone.guides
+        .filter((guide) => guide && (guide.axis === 'x' || guide.axis === 'y'))
+        .map((guide, index) => ({
+          id: typeof guide.id === 'string' && guide.id ? guide.id : `guide_${index + 1}`,
+          axis: guide.axis,
+          value: normalizeNumber(guide.value, 0, 0)
+        }))
+    : [];
   clone.elements = clone.elements.map((element) => normalizeElement(element, defaults));
+  clone.groups = normalizeGroups(clone, defaults);
 
   return clone;
 }
@@ -212,6 +226,14 @@ function normalizeElement(element: PidsElement, defaults: PidsProject): PidsElem
   }
   if (clone.kind === 'circle') {
     clone.rowIndex = normalizeOptionalNumber(clone.rowIndex, defaultElement?.kind === 'circle' ? defaultElement.rowIndex : 0, 0);
+  }
+  if (clone.parentId === 'rowTemplate' && !clone.repeat) {
+    clone.repeat = {
+      enabled: true,
+      count: 4,
+      direction: 'vertical',
+      gap: 0
+    };
   }
   return clone;
 }
@@ -325,4 +347,62 @@ function normalizeOptionalUv(value: unknown): [number, number, number, number] |
   if (!Array.isArray(value) || value.length !== 4) return undefined;
   const normalized = value.map((entry) => normalizeNumber(entry, 0));
   return [normalized[0], normalized[1], normalized[2], normalized[3]];
+}
+
+function normalizeGroups(project: PidsProject, defaults: PidsProject) {
+  const repeatGroupId = project.repeatRows.groupId;
+  const groups = project.groups.filter((group) => typeof group.id === 'string' && group.id);
+  const repeatGroup =
+    groups.find((group) => group.id === repeatGroupId) ??
+    defaults.groups.find((group) => group.id === repeatGroupId) ?? {
+      id: repeatGroupId,
+      name: 'Repeat Rows Template',
+      visible: true,
+      expanded: true,
+      children: []
+    };
+
+  const normalGroups = groups.filter((group) => group.id !== repeatGroupId);
+  const fallbackGroup = normalGroups[0] ?? defaults.groups.find((group) => group.id === 'root') ?? {
+    id: 'root',
+    name: 'Layer 1',
+    visible: true,
+    expanded: true,
+    children: []
+  };
+
+  project.elements = project.elements.map((element) => {
+    if (element.parentId === repeatGroupId) return element;
+    const matchedGroup = normalGroups.find((group) => group.id === element.parentId);
+    return matchedGroup ? element : { ...element, parentId: fallbackGroup.id };
+  });
+
+  const childMap = new Map<string, string[]>();
+  [...normalGroups, repeatGroup].forEach((group) => {
+    childMap.set(group.id, []);
+  });
+  project.elements.forEach((element) => {
+    const groupId = element.parentId ?? fallbackGroup.id;
+    const list = childMap.get(groupId);
+    if (list) list.push(element.id);
+  });
+
+  const dedupedNormalGroups = (normalGroups.length > 0 ? normalGroups : [fallbackGroup]).map((group, index) => ({
+    ...group,
+    name: group.name?.trim() || `Layer ${index + 1}`,
+    visible: group.visible !== false,
+    expanded: group.expanded ?? true,
+    children: childMap.get(group.id) ?? []
+  }));
+
+  return [
+    ...dedupedNormalGroups,
+    {
+      ...repeatGroup,
+      name: repeatGroup.name?.trim() || 'Repeat Rows Template',
+      visible: repeatGroup.visible !== false,
+      expanded: repeatGroup.expanded ?? true,
+      children: childMap.get(repeatGroup.id) ?? []
+    }
+  ];
 }

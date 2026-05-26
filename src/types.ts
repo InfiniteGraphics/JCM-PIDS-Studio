@@ -48,12 +48,20 @@ export type TextOverflowMode = 'none' | 'stretchXY' | 'scaleXY' | 'wrapText' | '
 export type ElementCondition = 'always' | 'arrival' | 'customMessage' | 'platformVisible';
 export type ImportSourceType = 'project-json' | 'embedded-js-metadata' | 'resource-shell';
 
+export interface ElementRepeatConfig {
+  enabled: boolean;
+  count: number;
+  direction: 'vertical' | 'horizontal';
+  gap: number;
+}
+
 export interface BaseElement {
   id: string;
   name: string;
   visible: boolean;
   locked?: boolean;
   parentId?: string;
+  repeat?: ElementRepeatConfig;
   x: number;
   y: number;
   w: number;
@@ -95,6 +103,7 @@ export interface TextureElement extends BaseElement {
   tint?: string;
   opacity?: number;
   uv?: [number, number, number, number];
+  preserveAspectRatio?: boolean;
 }
 
 export interface LineElement extends BaseElement {
@@ -129,8 +138,12 @@ export interface RepeatRowsConfig {
   enabled: boolean;
   groupId: string;
   name: string;
+  startX: number;
   startY: number;
+  rowWidth: number;
   rowHeight: number;
+  direction: 'vertical' | 'horizontal';
+  gap: number;
   maxRows: number;
   countSource: 'pids.rows' | 'fixed';
   skipHiddenRows: boolean;
@@ -155,6 +168,19 @@ export interface TextureAsset {
   zipPath: string;
   mimeType: 'image/png';
   dataBase64: string;
+  width: number;
+  height: number;
+}
+
+export interface TextureAssetUpdate {
+  name?: string;
+  textureId?: string;
+}
+
+export interface GuideLine {
+  id: string;
+  axis: 'x' | 'y';
+  value: number;
 }
 
 export interface PidsProject {
@@ -170,6 +196,7 @@ export interface PidsProject {
   groups: LayerGroup[];
   elements: PidsElement[];
   assets: TextureAsset[];
+  guides: GuideLine[];
   repeatRows: RepeatRowsConfig;
   behavior: PidsBehavior;
 }

@@ -26,11 +26,6 @@ export function getRenderedElements(project: PidsProject, runtime: MockRuntime):
     .forEach((element) => {
       const repeat = element.repeat!;
       for (let rowIndex = 0; rowIndex < repeat.count; rowIndex += 1) {
-        const hidden = runtime.hiddenRows.includes(rowIndex);
-        if (project.behavior.respectHideArrival && hidden) continue;
-        const customMessage = runtime.customMessages[rowIndex] || '';
-        const arrival = runtime.arrivals[rowIndex] ?? null;
-        if (!arrival && !customMessage) continue;
         const stepX = repeat.direction === 'horizontal' ? element.w + repeat.gap : 0;
         const stepY = repeat.direction === 'vertical' ? element.h + repeat.gap : 0;
         output.push({
