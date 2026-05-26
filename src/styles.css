@@ -736,12 +736,12 @@ pre {
 
 .issue-row {
   width: 100%;
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  align-items: start;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   text-align: left;
-  padding: 8px;
+  padding: 10px 12px;
   margin-bottom: 7px;
   border-radius: 9px;
   background: #0a121c;
@@ -749,10 +749,14 @@ pre {
 }
 
 .issue-row span {
+  display: block;
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 0.08em;
   font-weight: 800;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .issue-row p {
@@ -760,6 +764,8 @@ pre {
   color: #c5d1e0;
   font-size: 12px;
   line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .issue-row.error span { color: #ff8585; }
