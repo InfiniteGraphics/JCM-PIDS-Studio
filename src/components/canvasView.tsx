@@ -19,6 +19,7 @@ export function CanvasWorkbench({
   onReset,
   onClearGuides,
   onCreateGuide,
+  onRemoveGuide,
   onPointerMove,
   onPointerUp,
   onClearSelection,
@@ -37,6 +38,7 @@ export function CanvasWorkbench({
   onReset: () => void;
   onClearGuides: () => void;
   onCreateGuide: (axis: 'x' | 'y', value: number) => void;
+  onRemoveGuide: (id: string) => void;
   onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
   onClearSelection: () => void;
@@ -64,50 +66,99 @@ export function CanvasWorkbench({
           <button onClick={onClearGuides} disabled={guides.length === 0}>Clear Guides</button>
           <button onClick={onReset}>Reset</button>
         </div>
+        <div className="guide-group">
+          <label>Guides</label>
+          <div className="guide-list">
+            {guides.length === 0 ? (
+              <span className="guide-empty">None</span>
+            ) : (
+              guides.map((guide) => (
+                <button
+                  key={guide.id}
+                  type="button"
+                  className="guide-chip"
+                  title={`Remove ${guide.axis.toUpperCase()} guide at ${guide.value.toFixed(1)}`}
+                  onClick={() => onRemoveGuide(guide.id)}
+                >
+                  {guide.axis.toUpperCase()} {guide.value.toFixed(1)}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       <div
         className="canvas-stage"
-        style={{ '--canvas-width': `${project.canvas.width * zoom}px`, '--canvas-height': `${project.canvas.height * zoom}px` } as React.CSSProperties}
+        style={{
+          '--canvas-width': `${project.canvas.width * zoom}px`,
+          '--canvas-height': `${project.canvas.height * zoom}px`,
+          '--canvas-frame-width': `${project.canvas.width * zoom + 34}px`,
+          '--canvas-frame-height': `${project.canvas.height * zoom + 24}px`
+        } as React.CSSProperties}
       >
-        <Rulers width={project.canvas.width} height={project.canvas.height} zoom={zoom} onCreateGuide={onCreateGuide} />
-        <svg
-          className="pids-canvas"
-          width={project.canvas.width * zoom}
-          height={project.canvas.height * zoom}
-          viewBox={`0 0 ${project.canvas.width} ${project.canvas.height}`}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          onPointerDown={onClearSelection}
-        >
-          <defs>
-            <pattern id="small-grid" width="4" height="4" patternUnits="userSpaceOnUse">
-              <path d="M 4 0 L 0 0 0 4" fill="none" stroke="#243347" strokeWidth="0.18" />
-            </pattern>
-          </defs>
-          <rect x="0" y="0" width={project.canvas.width} height={project.canvas.height} fill="url(#small-grid)" />
-          <line x1={project.canvas.width / 2} x2={project.canvas.width / 2} y1={0} y2={project.canvas.height} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
-          <line y1={project.canvas.height / 2} y2={project.canvas.height / 2} x1={0} x2={project.canvas.width} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
-          {guides.map((guide) =>
-            guide.axis === 'x' ? (
-              <line key={guide.id} x1={guide.value} x2={guide.value} y1={0} y2={project.canvas.height} className="guide-line" />
-            ) : (
-              <line key={guide.id} x1={0} x2={project.canvas.width} y1={guide.value} y2={guide.value} className="guide-line" />
-            )
-          )}
-          {renderedElements.map((rendered) => (
-            <ElementView
-              key={rendered.key}
-              rendered={rendered}
-              runtime={runtime}
-              assetUrls={assetUrls}
-              selected={rendered.element.id === selectedId}
-              onPointerDown={(event) => onElementPointerDown(event, rendered)}
-              onResizeStart={onResizeStart}
-            />
-          ))}
-        </svg>
+        <div className="canvas-frame">
+          <Rulers width={project.canvas.width} height={project.canvas.height} zoom={zoom} onCreateGuide={onCreateGuide} />
+          <svg
+            className="pids-canvas"
+            width={project.canvas.width * zoom}
+            height={project.canvas.height * zoom}
+            viewBox={`0 0 ${project.canvas.width} ${project.canvas.height}`}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            onPointerDown={onClearSelection}
+          >
+            <defs>
+              <pattern id="small-grid" width="4" height="4" patternUnits="userSpaceOnUse">
+                <path d="M 4 0 L 0 0 0 4" fill="none" stroke="#243347" strokeWidth="0.18" />
+              </pattern>
+            </defs>
+            <rect x="0" y="0" width={project.canvas.width} height={project.canvas.height} fill="url(#small-grid)" />
+            <line x1={project.canvas.width / 2} x2={project.canvas.width / 2} y1={0} y2={project.canvas.height} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
+            <line y1={project.canvas.height / 2} y2={project.canvas.height / 2} x1={0} x2={project.canvas.width} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
+            {guides.map((guide) =>
+              guide.axis === 'x' ? (
+                <line
+                  key={guide.id}
+                  x1={guide.value}
+                  x2={guide.value}
+                  y1={0}
+                  y2={project.canvas.height}
+                  className="guide-line"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    onRemoveGuide(guide.id);
+                  }}
+                />
+              ) : (
+                <line
+                  key={guide.id}
+                  x1={0}
+                  x2={project.canvas.width}
+                  y1={guide.value}
+                  y2={guide.value}
+                  className="guide-line"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    onRemoveGuide(guide.id);
+                  }}
+                />
+              )
+            )}
+            {renderedElements.map((rendered) => (
+              <ElementView
+                key={rendered.key}
+                rendered={rendered}
+                runtime={runtime}
+                assetUrls={assetUrls}
+                selected={rendered.element.id === selectedId}
+                onPointerDown={(event) => onElementPointerDown(event, rendered)}
+                onResizeStart={onResizeStart}
+              />
+            ))}
+          </svg>
+        </div>
       </div>
     </section>
   );
@@ -129,7 +180,8 @@ function ElementView({
   onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
 }) {
   const { element, x, y, rowIndex } = rendered;
-  const context = { runtime, rowIndex };
+  const previewRowIndex = typeof rowIndex === 'number' && runtime.rows > 0 ? rowIndex % runtime.rows : rowIndex;
+  const context = { runtime, rowIndex: previewRowIndex };
   const isTemplateInstance = typeof rowIndex === 'number' && element.parentId === 'rowTemplate' && Boolean(element.repeat?.enabled);
 
   if (element.kind === 'rect') {

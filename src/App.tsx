@@ -435,6 +435,9 @@ export default function App() {
             onCreateGuide={(axis, value) => store.updateProject((draft) => {
               draft.guides.push({ id: uid('guide'), axis, value: round(value) });
             })}
+            onRemoveGuide={(id) => store.updateProject((draft) => {
+              draft.guides = draft.guides.filter((guide) => guide.id !== id);
+            })}
             onPointerMove={onCanvasPointerMove}
             onPointerUp={() => {
               setDragState(null);

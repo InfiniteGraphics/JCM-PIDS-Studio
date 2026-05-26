@@ -110,13 +110,15 @@ export function Rulers({
   zoom: number;
   onCreateGuide?: (axis: 'x' | 'y', value: number) => void;
 }) {
+  const rulerXOffset = 34;
+  const rulerYOffset = 24;
   const xTicks = [0, 16, 32, 48, 64, 80, 96, 112, 128, width].filter((item, index, arr) => arr.indexOf(item) === index && item <= width);
   const yTicks = [0, 16, 32, 48, 64, height].filter((item, index, arr) => arr.indexOf(item) === index && item <= height);
   return (
     <>
       <div
         className="ruler ruler-x"
-        style={{ width: width * zoom }}
+        style={{ left: `${rulerXOffset}px`, width: `calc(100% - ${rulerXOffset}px)` }}
         onPointerDown={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           const value = ((event.clientX - rect.left) / zoom);
@@ -131,7 +133,7 @@ export function Rulers({
       </div>
       <div
         className="ruler ruler-y"
-        style={{ height: height * zoom }}
+        style={{ top: `${rulerYOffset}px`, height: `calc(100% - ${rulerYOffset}px)` }}
         onPointerDown={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           const value = ((event.clientY - rect.top) / zoom);
