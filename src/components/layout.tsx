@@ -1,5 +1,6 @@
 import type { MockScenario, PidsElement, PidsProject } from '../types';
 import { ComponentButton, PanelTitle, Tabs } from './common';
+import { DEFAULT_CANVAS_ZOOM } from '../store/editorStore';
 
 export const SCENARIOS: { label: string; value: MockScenario }[] = [
   { label: 'Normal', value: 'normal' },
@@ -52,6 +53,8 @@ export function TopToolbar({
   onUndo: () => void;
   onRedo: () => void;
 }) {
+  const zoomPercent = Math.round((zoom / DEFAULT_CANVAS_ZOOM) * 100);
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -74,7 +77,7 @@ export function TopToolbar({
         <span className="pill">{project.canvas.width} x {project.canvas.height}</span>
         <label>Zoom</label>
         <button type="button" onClick={onZoomOut}>-</button>
-        <span className="pill">{Math.round(zoom * 100)}%</span>
+        <span className="pill">{zoomPercent}%</span>
         <button type="button" onClick={onZoomIn}>+</button>
         <label className="inline-check"><input type="checkbox" checked={snapToGrid} onChange={(event) => onSnapChange(event.target.checked)} /> Snap</label>
         <button type="button" onClick={onUndo} disabled={!canUndo}>Undo</button>

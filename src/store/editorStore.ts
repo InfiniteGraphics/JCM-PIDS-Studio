@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMockRuntime } from '../data/mockPids';
 import { generateArtifacts, buildResourcePackManifest } from '../editor/codegen';
 import { buildResourcePackZip } from '../editor/importExport';
@@ -12,6 +12,9 @@ import type {
 } from '../types';
 
 const STORAGE_KEY = 'js-pids-visual-editor-mvp-project-v3';
+export const DEFAULT_CANVAS_ZOOM = 8;
+export const MIN_CANVAS_ZOOM = 2;
+export const MAX_CANVAS_ZOOM = 16;
 
 function loadInitialProject() {
   try {
@@ -27,10 +30,16 @@ export function useEditorStore() {
   const [project, setProject] = useState<PidsProject>(() => loadInitialProject());
   const [selectedId, setSelectedId] = useState<string>('destination_template');
   const [scenario, setScenario] = useState<MockScenario>('normal');
-  const [zoom, setZoom] = useState(4.5);
+  const [zoom, setZoom] = useState(DEFAULT_CANVAS_ZOOM);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [history, setHistory] = useState<{ past: PidsProject[]; future: PidsProject[] }>({ past: [], future: [] });
   const [clipboard, setClipboard] = useState<PidsElement | null>(null);
+  const projectRef = useRef(project);
+  const interactionRef = useRef<{ before: PidsProject; changed: boolean } | null>(null);
+
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
 
   const runtime = useMemo(() => getMockRuntime(scenario), [scenario]);
   const selected = useMemo(() => project.elements.find((element) => element.id === selectedId) ?? null, [project.elements, selectedId]);
@@ -41,16 +50,32 @@ export function useEditorStore() {
   const exportIssues = useMemo(() => [...validationIssues, ...compatibilityIssues], [validationIssues, compatibilityIssues]);
   const exportSummary = useMemo(() => issueSummary(exportIssues), [exportIssues]);
 
-  function commit(next: PidsProject) {
-    setHistory((current) => ({ past: [...current.past, structuredClone(project)], future: [] }));
-    setProject(next);
+  function persistProject(next: PidsProject) {
+    projectRef.current = next;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
 
+  function commit(next: PidsProject) {
+    const currentProject = projectRef.current;
+    setHistory((current) => ({ past: [...current.past, structuredClone(currentProject)], future: [] }));
+    setProject(next);
+    persistProject(next);
+  }
+
   function updateProject(updater: (draft: PidsProject) => void) {
-    const draft = structuredClone(project);
+    const draft = structuredClone(projectRef.current);
     updater(draft);
     commit(draft);
+  }
+
+  function updateProjectLive(updater: (draft: PidsProject) => void) {
+    const draft = structuredClone(projectRef.current);
+    updater(draft);
+    if (interactionRef.current) {
+      interactionRef.current.changed = true;
+    }
+    setProject(draft);
+    persistProject(draft);
   }
 
   function setWholeProject(nextProject: PidsProject, nextSelectedId?: string) {
@@ -63,9 +88,9 @@ export function useEditorStore() {
       const previous = current.past[current.past.length - 1];
       if (!previous) return current;
       const nextPast = current.past.slice(0, -1);
-      const nextFuture = [structuredClone(project), ...current.future];
+      const nextFuture = [structuredClone(projectRef.current), ...current.future];
       setProject(previous);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(previous));
+      persistProject(previous);
       return { past: nextPast, future: nextFuture };
     });
   }
@@ -75,9 +100,9 @@ export function useEditorStore() {
       const next = current.future[0];
       if (!next) return current;
       const nextFuture = current.future.slice(1);
-      const nextPast = [...current.past, structuredClone(project)];
+      const nextPast = [...current.past, structuredClone(projectRef.current)];
       setProject(next);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      persistProject(next);
       return { past: nextPast, future: nextFuture };
     });
   }
@@ -93,12 +118,40 @@ export function useEditorStore() {
     commit(next);
     setSelectedId('destination_template');
     setScenario('normal');
-    setZoom(4.5);
+    setZoom(DEFAULT_CANVAS_ZOOM);
     setSnapToGrid(true);
+  }
+
+  function beginInteraction() {
+    if (interactionRef.current) return;
+    interactionRef.current = {
+      before: structuredClone(projectRef.current),
+      changed: false
+    };
+  }
+
+  function endInteraction() {
+    const interaction = interactionRef.current;
+    interactionRef.current = null;
+    if (!interaction || !interaction.changed) return;
+
+    setHistory((current) => ({
+      past: [...current.past, interaction.before],
+      future: []
+    }));
   }
 
   function updateElement(id: string, patch: Partial<PidsElement>) {
     updateProject((draft) => {
+      const index = draft.elements.findIndex((element) => element.id === id);
+      if (index >= 0) {
+        draft.elements[index] = { ...draft.elements[index], ...patch } as PidsElement;
+      }
+    });
+  }
+
+  function updateElementLive(id: string, patch: Partial<PidsElement>) {
+    updateProjectLive((draft) => {
       const index = draft.elements.findIndex((element) => element.id === id);
       if (index >= 0) {
         draft.elements[index] = { ...draft.elements[index], ...patch } as PidsElement;
@@ -307,8 +360,11 @@ export function useEditorStore() {
     setZoom,
     setSnapToGrid,
     setWholeProject,
+    beginInteraction,
+    endInteraction,
     updateProject,
     updateElement,
+    updateElementLive,
     updateGroup,
     addComponent,
     deleteElement,

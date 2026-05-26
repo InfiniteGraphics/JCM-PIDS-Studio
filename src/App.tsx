@@ -8,7 +8,7 @@ import { clamp, round } from './canvas/rendering';
 import { resizeFromHandle, type ResizeHandle } from './canvas/resize';
 import { importProjectText } from './editor/importExport';
 import { issueSummary } from './editor/validation';
-import { useEditorStore } from './store/editorStore';
+import { DEFAULT_CANVAS_ZOOM, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, useEditorStore } from './store/editorStore';
 import type { PidsElement } from './types';
 
 const GRID_SIZE = 0.5;
@@ -147,7 +147,7 @@ export default function App() {
           ? store.project.repeatRows.startY + dragState.rowIndex * store.project.repeatRows.rowHeight
           : 0;
 
-      store.updateElement(dragState.id, {
+      store.updateElementLive(dragState.id, {
         x: clamp(snap(point.x - dragState.offsetX), 0, store.project.canvas.width),
         y: snap(point.y - dragState.offsetY - rowOffset)
       } as Partial<PidsElement>);
@@ -157,7 +157,7 @@ export default function App() {
       const dx = point.x - resizeState.startX;
       const dy = point.y - resizeState.startY;
       const patch = resizeFromHandle(resizeState.start, resizeState.handle, dx, dy, GRID_SIZE, store.snapToGrid);
-      store.updateElement(resizeState.id, patch);
+      store.updateElementLive(resizeState.id, patch);
     }
   }
 
@@ -165,6 +165,7 @@ export default function App() {
     if (rendered.element.locked) return;
     event.stopPropagation();
     const point = pointerToCanvas(event);
+    store.beginInteraction();
     store.setSelectedId(rendered.element.id);
     setDragState({
       id: rendered.element.id,
@@ -177,6 +178,7 @@ export default function App() {
   function startResize(event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) {
     event.stopPropagation();
     const point = pointerToCanvas(event);
+    store.beginInteraction();
     store.setSelectedId(element.id);
     setResizeState({ id: element.id, rowIndex, handle, startX: point.x, startY: point.y, start: structuredClone(element) });
   }
@@ -198,8 +200,8 @@ export default function App() {
             if (preset === 'pids_1a') draft.canvas = { width: 96, height: 48 };
           })
         }
-        onZoomOut={() => store.setZoom((value) => Math.max(2, value - 0.5))}
-        onZoomIn={() => store.setZoom((value) => Math.min(8, value + 0.5))}
+        onZoomOut={() => store.setZoom((value) => Math.max(MIN_CANVAS_ZOOM, value - 1))}
+        onZoomIn={() => store.setZoom((value) => Math.min(MAX_CANVAS_ZOOM, value + 1))}
         onSnapChange={store.setSnapToGrid}
         onNewProject={() => {
           if (window.confirm('这会清空当前编辑内容并新建一个默认 Project，是否继续？')) {
@@ -288,6 +290,7 @@ export default function App() {
             onPointerUp={() => {
               setDragState(null);
               setResizeState(null);
+              store.endInteraction();
             }}
             onClearSelection={() => store.setSelectedId('')}
             onElementPointerDown={startDrag}

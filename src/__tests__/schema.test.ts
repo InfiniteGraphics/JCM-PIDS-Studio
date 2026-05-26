@@ -9,6 +9,7 @@ import {
   parseProjectJson
 } from '../schema/projectSchema';
 import { generatePidsScript } from '../editor/codegen';
+import { DEFAULT_CANVAS_ZOOM, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../store/editorStore';
 
 describe('project schema', () => {
   it('parses a current project json', () => {
@@ -38,5 +39,11 @@ describe('project schema', () => {
     const restored = importEmbeddedProjectMetadata(script);
     expect(restored.name).toBe(project.name);
     expect(restored.elements.length).toBe(project.elements.length);
+  });
+
+  it('uses the updated canvas zoom defaults', () => {
+    expect(DEFAULT_CANVAS_ZOOM).toBe(8);
+    expect(MIN_CANVAS_ZOOM).toBeLessThan(DEFAULT_CANVAS_ZOOM);
+    expect(MAX_CANVAS_ZOOM).toBeGreaterThan(DEFAULT_CANVAS_ZOOM);
   });
 });
