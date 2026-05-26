@@ -41,6 +41,22 @@ describe('project schema', () => {
     expect(restored.elements.length).toBe(project.elements.length);
   });
 
+  it('normalizes invalid numeric fields from stored projects', () => {
+    const project = createDefaultProject();
+    const restored = migrateProject({
+      ...project,
+      elements: project.elements.map((element) =>
+        element.id === 'destination_template'
+          ? { ...element, y: null, w: null, fontSize: null }
+          : element
+      )
+    });
+    const target = restored.elements.find((element) => element.id === 'destination_template');
+    expect(target?.y).toBe(0);
+    expect(target?.w).toBe(54);
+    expect(target?.kind === 'text' ? target.fontSize : undefined).toBe(6.4);
+  });
+
   it('uses the updated canvas zoom defaults', () => {
     expect(DEFAULT_CANVAS_ZOOM).toBe(8);
     expect(MIN_CANVAS_ZOOM).toBeLessThan(DEFAULT_CANVAS_ZOOM);

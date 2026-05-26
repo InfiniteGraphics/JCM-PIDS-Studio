@@ -138,6 +138,7 @@ function createProjectShellFromResourceJson(parsed: Record<string, unknown>): Pi
 }
 
 function normalizeProject(project: PidsProject): PidsProject {
+  const defaults = createDefaultProject();
   const clone = structuredClone(project);
   clone.schemaVersion = CURRENT_SCHEMA_VERSION;
   clone.resourceNamespace = normalizeResourceNamespace(clone.resourceNamespace);
@@ -151,21 +152,66 @@ function normalizeProject(project: PidsProject): PidsProject {
     expanded: group.expanded ?? true
   }));
 
+  clone.canvas = {
+    width: normalizeNumber(clone.canvas?.width, defaults.canvas.width, 1),
+    height: normalizeNumber(clone.canvas?.height, defaults.canvas.height, 1)
+  };
+  clone.repeatRows = {
+    ...defaults.repeatRows,
+    ...clone.repeatRows,
+    startY: normalizeNumber(clone.repeatRows?.startY, defaults.repeatRows.startY),
+    rowHeight: normalizeNumber(clone.repeatRows?.rowHeight, defaults.repeatRows.rowHeight, 0.5),
+    maxRows: normalizeNumber(clone.repeatRows?.maxRows, defaults.repeatRows.maxRows, 1),
+    countSource: clone.repeatRows?.countSource === 'fixed' ? 'fixed' : 'pids.rows'
+  };
+  clone.behavior = {
+    ...defaults.behavior,
+    ...clone.behavior,
+    zOrderStep: normalizeNumber(clone.behavior?.zOrderStep, defaults.behavior.zOrderStep, 0.001)
+  };
   clone.assets = Array.isArray(clone.assets)
     ? clone.assets.map((asset) => normalizeAsset(asset, clone.resourceNamespace))
     : [];
-  clone.elements = clone.elements.map(normalizeElement);
+  clone.elements = clone.elements.map((element) => normalizeElement(element, defaults));
 
   return clone;
 }
 
-function normalizeElement(element: PidsElement): PidsElement {
+function normalizeElement(element: PidsElement, defaults: PidsProject): PidsElement {
   const clone = structuredClone(element);
   clone.visible = Boolean(clone.visible);
   clone.parentId = clone.parentId ?? 'root';
+  const defaultElement = defaults.elements.find((item) => item.id === clone.id);
+  clone.x = normalizeNumber(clone.x, defaultElement?.x ?? 0);
+  clone.y = normalizeNumber(clone.y, defaultElement?.y ?? 0);
+  clone.w = normalizeNumber(clone.w, defaultElement?.w ?? 1, 0.5);
+  clone.h = normalizeNumber(clone.h, defaultElement?.h ?? 1, 0.5);
+  clone.z = normalizeNumber(clone.z, defaultElement?.z ?? 0);
   if (clone.kind === 'texture') {
     clone.textureId = clone.textureId.trim();
     clone.tint = clone.tint || '#ffffff';
+    clone.opacity = normalizeOptionalNumber(clone.opacity, defaultElement?.kind === 'texture' ? defaultElement.opacity : 1, 0);
+    clone.uv = normalizeOptionalUv(clone.uv);
+  }
+  if (clone.kind === 'text') {
+    clone.fontSize = normalizeNumber(clone.fontSize, defaultElement?.kind === 'text' ? defaultElement.fontSize : 5, 0.1);
+    clone.rowIndex = normalizeOptionalNumber(clone.rowIndex, defaultElement?.kind === 'text' ? defaultElement.rowIndex : 0, 0);
+    clone.marqueeDuration = normalizeOptionalNumber(
+      clone.marqueeDuration,
+      defaultElement?.kind === 'text' ? defaultElement.marqueeDuration : undefined,
+      0.1
+    );
+  }
+  if (clone.kind === 'rect') {
+    clone.opacity = normalizeOptionalNumber(clone.opacity, defaultElement?.kind === 'rect' ? defaultElement.opacity : 1, 0);
+    clone.radius = normalizeOptionalNumber(clone.radius, defaultElement?.kind === 'rect' ? defaultElement.radius : 0, 0);
+    clone.uv = normalizeOptionalUv(clone.uv);
+  }
+  if (clone.kind === 'line') {
+    clone.strokeWidth = normalizeNumber(clone.strokeWidth, defaultElement?.kind === 'line' ? defaultElement.strokeWidth : 1, 0.1);
+  }
+  if (clone.kind === 'circle') {
+    clone.rowIndex = normalizeOptionalNumber(clone.rowIndex, defaultElement?.kind === 'circle' ? defaultElement.rowIndex : 0, 0);
   }
   return clone;
 }
@@ -258,4 +304,25 @@ function decodeBase64Utf8(value: string) {
   const binary = atob(value);
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   return new TextDecoder().decode(bytes);
+}
+
+function normalizeNumber(value: unknown, fallback: number, min?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+    return fallback;
+  }
+  if (typeof min === 'number' && value < min) {
+    return min;
+  }
+  return value;
+}
+
+function normalizeOptionalNumber(value: unknown, fallback?: number, min?: number) {
+  if (value == null) return fallback;
+  return normalizeNumber(value, fallback ?? 0, min);
+}
+
+function normalizeOptionalUv(value: unknown): [number, number, number, number] | undefined {
+  if (!Array.isArray(value) || value.length !== 4) return undefined;
+  const normalized = value.map((entry) => normalizeNumber(entry, 0));
+  return [normalized[0], normalized[1], normalized[2], normalized[3]];
 }

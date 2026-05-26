@@ -4,6 +4,7 @@ import { generateArtifacts, buildResourcePackManifest } from '../editor/codegen'
 import { buildResourcePackZip } from '../editor/importExport';
 import { checkJcmCompatibility, issueSummary, validateProject } from '../editor/validation';
 import { createDefaultProject, uid } from '../editor/defaultProject';
+import { migrateProject } from '../schema/projectSchema';
 import type {
   ElementCondition,
   MockScenario,
@@ -21,7 +22,7 @@ function loadInitialProject() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return createDefaultProject();
-    return JSON.parse(raw) as PidsProject;
+    return migrateProject(JSON.parse(raw));
   } catch {
     return createDefaultProject();
   }
