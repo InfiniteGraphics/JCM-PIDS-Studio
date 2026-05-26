@@ -111,12 +111,13 @@ function ElementView({
 }) {
   const { element, x, y, rowIndex } = rendered;
   const context = { runtime, rowIndex };
+  const isTemplateInstance = typeof rowIndex === 'number' && element.parentId === 'rowTemplate';
 
   if (element.kind === 'rect') {
     return (
       <g onPointerDown={onPointerDown} className="canvas-element">
         <rect x={x} y={y} width={element.w} height={element.h} fill={element.fill} stroke={element.stroke ?? 'none'} strokeWidth="0.35" rx={element.radius ?? 0} opacity={element.opacity ?? 1} />
-        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
       </g>
     );
   }
@@ -125,7 +126,7 @@ function ElementView({
     return (
       <g onPointerDown={onPointerDown} className="canvas-element">
         <line x1={x} y1={y} x2={x + element.w} y2={y + element.h} stroke={element.stroke} strokeWidth={element.strokeWidth} />
-        {selected && <SelectionBox element={{ ...element, h: Math.max(element.h, 1) }} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+        {selected && <SelectionBox element={{ ...element, h: Math.max(element.h, 1) }} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
       </g>
     );
   }
@@ -137,7 +138,7 @@ function ElementView({
       <g onPointerDown={onPointerDown} className="canvas-element">
         <circle cx={x + element.w / 2} cy={y + element.h / 2} r={Math.min(element.w, element.h) / 2} fill={getRouteFill(element, context)} stroke={element.stroke ?? '#fff'} strokeWidth="0.35" />
         <text x={x + element.w / 2} y={y + element.h / 2 + element.h * 0.23} textAnchor="middle" fill={element.textColor ?? '#ffffff'} fontWeight="700" fontSize={element.h * 0.68}>{label}</text>
-        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
       </g>
     );
   }
@@ -151,7 +152,7 @@ function ElementView({
     <g onPointerDown={onPointerDown} className="canvas-element">
       {element.shadow && <text x={textX + 0.5} y={y + element.h * 0.72 + 0.5} fill="#000000" opacity="0.55" fontSize={element.fontSize} fontWeight={element.fontWeight === 'bold' ? 700 : 400} textAnchor={anchor}>{fitPreviewText(text, element.w, element.fontSize)}</text>}
       <text x={textX} y={y + element.h * 0.72} fill={element.color} fontSize={element.fontSize} fontStyle={element.italic ? 'italic' : 'normal'} fontWeight={element.fontWeight === 'bold' ? 700 : 400} textAnchor={anchor}>{fitPreviewText(text, element.w, element.fontSize)}</text>
-      {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+      {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
     </g>
   );
 }
@@ -161,12 +162,14 @@ function SelectionBox({
   x,
   y,
   rowIndex,
+  isTemplateInstance,
   onResizeStart
 }: {
   element: PidsElement;
   x: number;
   y: number;
   rowIndex?: number;
+  isTemplateInstance: boolean;
   onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
 }) {
   const handles: Array<[ResizeHandle, number, number]> = [
@@ -179,6 +182,9 @@ function SelectionBox({
   return (
     <g className="selection-box">
       <rect x={x} y={y} width={element.w} height={element.h} fill="none" stroke="#2ffff8" strokeWidth="0.45" strokeDasharray="1 0.8" />
+      {isTemplateInstance && (
+        <text x={x} y={y - 1.2} className="template-badge">row {typeof rowIndex === 'number' ? rowIndex + 1 : ''} template</text>
+      )}
       {handles.map(([handle, hx, hy]) => (
         <rect key={handle} className={`resize-handle resize-${handle}`} x={hx - 0.85} y={hy - 0.85} width="1.7" height="1.7" fill="#2ffff8" onPointerDown={(event) => onResizeStart(event, element, rowIndex, handle)} />
       ))}

@@ -12,7 +12,7 @@ import type {
   ValidationIssue
 } from '../types';
 import { getBindingDefinition } from './bindings';
-import { extractMethodCalls, isAllowedGeneratedMethod } from './jcmSpec';
+import { extractGeneratedApiCalls, isAllowedGeneratedApiCall } from './jcmSpec';
 
 export function validateProject(project: PidsProject): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -113,10 +113,10 @@ export function validateProject(project: PidsProject): ValidationIssue[] {
 export function checkJcmCompatibility(project: PidsProject, generatedJs: string, manifest: ResourcePackManifest): JcmCompatibilityIssue[] {
   const issues: JcmCompatibilityIssue[] = [];
 
-  const methodCalls = extractMethodCalls(generatedJs);
-  methodCalls.forEach((method) => {
-    if (!isAllowedGeneratedMethod(method) && !['setAutoZOrdering', 'setZOrderStep'].includes(method)) {
-      issues.push(projectIssue('error', 'JCM_API_NOT_ALLOWED', `Generated JS uses unsupported method .${method}().`));
+  const apiCalls = extractGeneratedApiCalls(generatedJs);
+  apiCalls.forEach((call) => {
+    if (!isAllowedGeneratedApiCall(call)) {
+      issues.push(projectIssue('error', 'JCM_API_NOT_ALLOWED', `Generated JS uses unsupported ${call.object} method .${call.method}().`));
     }
   });
 

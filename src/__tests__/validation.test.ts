@@ -44,4 +44,11 @@ describe('validation', () => {
     const issues = checkJcmCompatibility(project, generatePidsScript(project), buildResourcePackManifest(project));
     expect(issues.some((issue) => issue.code === 'LINE_ROTATION_UNVERIFIED')).toBe(true);
   });
+
+  it('does not treat plain JavaScript helpers as unsupported JCM API calls', () => {
+    const project = createDefaultProject();
+    const issues = checkJcmCompatibility(project, generatePidsScript(project), buildResourcePackManifest(project));
+
+    expect(issues.some((issue) => issue.code === 'JCM_API_NOT_ALLOWED')).toBe(false);
+  });
 });

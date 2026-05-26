@@ -433,6 +433,14 @@ pre {
   filter: drop-shadow(0 0 3px rgba(35, 215, 211, 0.45));
 }
 
+.template-badge {
+  fill: #73f3ff;
+  font-size: 1.8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .ruler {
   position: absolute;
   color: #8da3ba;
