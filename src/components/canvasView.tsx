@@ -1,0 +1,187 @@
+import type React from 'react';
+import { getRouteFill, resolveElementText } from '../editor/bindings';
+import type { MockRuntime, PidsElement, PidsProject } from '../types';
+import { fitPreviewText } from '../canvas/rendering';
+import type { RenderedElement } from '../canvas/rendering';
+import type { ResizeHandle } from '../canvas/resize';
+import { Rulers } from './common';
+
+export function CanvasWorkbench({
+  project,
+  runtime,
+  scenario,
+  zoom,
+  renderedElements,
+  selectedId,
+  onScenarioChange,
+  onReset,
+  onPointerMove,
+  onPointerUp,
+  onClearSelection,
+  onElementPointerDown,
+  onResizeStart
+}: {
+  project: PidsProject;
+  runtime: MockRuntime;
+  scenario: string;
+  zoom: number;
+  renderedElements: RenderedElement[];
+  selectedId: string;
+  onScenarioChange: (value: string) => void;
+  onReset: () => void;
+  onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
+  onPointerUp: () => void;
+  onClearSelection: () => void;
+  onElementPointerDown: (event: React.PointerEvent<SVGElement>, rendered: RenderedElement) => void;
+  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+}) {
+  return (
+    <section className="workbench">
+      <div className="canvas-toolbar">
+        <div>
+          <strong>Visual Canvas</strong>
+          <span>Repeat Rows preview, resize handles, guides, keyboard nudging</span>
+        </div>
+        <div className="scenario-group">
+          <label>Mock Data</label>
+          <select value={scenario} onChange={(event) => onScenarioChange(event.target.value)}>
+            <option value="normal">Normal</option>
+            <option value="longDestination">Long destination</option>
+            <option value="customMessage">Custom message</option>
+            <option value="hiddenRow">Hidden row</option>
+            <option value="hidePlatform">Hide platform</option>
+            <option value="emptyArrivals">Empty arrivals</option>
+            <option value="terminating">Terminating</option>
+          </select>
+          <button onClick={onReset}>Reset</button>
+        </div>
+      </div>
+
+      <div
+        className="canvas-stage"
+        style={{ '--canvas-width': `${project.canvas.width * zoom}px`, '--canvas-height': `${project.canvas.height * zoom}px` } as React.CSSProperties}
+      >
+        <Rulers width={project.canvas.width} height={project.canvas.height} zoom={zoom} />
+        <svg
+          className="pids-canvas"
+          width={project.canvas.width * zoom}
+          height={project.canvas.height * zoom}
+          viewBox={`0 0 ${project.canvas.width} ${project.canvas.height}`}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          onPointerDown={onClearSelection}
+        >
+          <defs>
+            <pattern id="small-grid" width="4" height="4" patternUnits="userSpaceOnUse">
+              <path d="M 4 0 L 0 0 0 4" fill="none" stroke="#243347" strokeWidth="0.18" />
+            </pattern>
+          </defs>
+          <rect x="0" y="0" width={project.canvas.width} height={project.canvas.height} fill="url(#small-grid)" />
+          <line x1={project.canvas.width / 2} x2={project.canvas.width / 2} y1={0} y2={project.canvas.height} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
+          <line y1={project.canvas.height / 2} y2={project.canvas.height / 2} x1={0} x2={project.canvas.width} stroke="#18d2d5" strokeWidth="0.25" strokeDasharray="1 1" />
+          {renderedElements.map((rendered) => (
+            <ElementView
+              key={rendered.key}
+              rendered={rendered}
+              runtime={runtime}
+              selected={rendered.element.id === selectedId}
+              onPointerDown={(event) => onElementPointerDown(event, rendered)}
+              onResizeStart={onResizeStart}
+            />
+          ))}
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function ElementView({
+  rendered,
+  runtime,
+  selected,
+  onPointerDown,
+  onResizeStart
+}: {
+  rendered: RenderedElement;
+  runtime: MockRuntime;
+  selected: boolean;
+  onPointerDown: (event: React.PointerEvent<SVGElement>) => void;
+  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+}) {
+  const { element, x, y, rowIndex } = rendered;
+  const context = { runtime, rowIndex };
+
+  if (element.kind === 'rect') {
+    return (
+      <g onPointerDown={onPointerDown} className="canvas-element">
+        <rect x={x} y={y} width={element.w} height={element.h} fill={element.fill} stroke={element.stroke ?? 'none'} strokeWidth="0.35" rx={element.radius ?? 0} opacity={element.opacity ?? 1} />
+        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+      </g>
+    );
+  }
+
+  if (element.kind === 'line') {
+    return (
+      <g onPointerDown={onPointerDown} className="canvas-element">
+        <line x1={x} y1={y} x2={x + element.w} y2={y + element.h} stroke={element.stroke} strokeWidth={element.strokeWidth} />
+        {selected && <SelectionBox element={{ ...element, h: Math.max(element.h, 1) }} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+      </g>
+    );
+  }
+
+  if (element.kind === 'circle') {
+    const label = resolveElementText(element, context);
+    if (!label && element.condition === 'arrival') return null;
+    return (
+      <g onPointerDown={onPointerDown} className="canvas-element">
+        <circle cx={x + element.w / 2} cy={y + element.h / 2} r={Math.min(element.w, element.h) / 2} fill={getRouteFill(element, context)} stroke={element.stroke ?? '#fff'} strokeWidth="0.35" />
+        <text x={x + element.w / 2} y={y + element.h / 2 + element.h * 0.23} textAnchor="middle" fill={element.textColor ?? '#ffffff'} fontWeight="700" fontSize={element.h * 0.68}>{label}</text>
+        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+      </g>
+    );
+  }
+
+  const text = resolveElementText(element, context);
+  if (!text) return null;
+  const anchor = element.align === 'center' ? 'middle' : element.align === 'right' ? 'end' : 'start';
+  const textX = element.align === 'center' ? x + element.w / 2 : element.align === 'right' ? x + element.w : x;
+
+  return (
+    <g onPointerDown={onPointerDown} className="canvas-element">
+      {element.shadow && <text x={textX + 0.5} y={y + element.h * 0.72 + 0.5} fill="#000000" opacity="0.55" fontSize={element.fontSize} fontWeight={element.fontWeight === 'bold' ? 700 : 400} textAnchor={anchor}>{fitPreviewText(text, element.w, element.fontSize)}</text>}
+      <text x={textX} y={y + element.h * 0.72} fill={element.color} fontSize={element.fontSize} fontStyle={element.italic ? 'italic' : 'normal'} fontWeight={element.fontWeight === 'bold' ? 700 : 400} textAnchor={anchor}>{fitPreviewText(text, element.w, element.fontSize)}</text>
+      {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} onResizeStart={onResizeStart} />}
+    </g>
+  );
+}
+
+function SelectionBox({
+  element,
+  x,
+  y,
+  rowIndex,
+  onResizeStart
+}: {
+  element: PidsElement;
+  x: number;
+  y: number;
+  rowIndex?: number;
+  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+}) {
+  const handles: Array<[ResizeHandle, number, number]> = [
+    ['nw', x, y],
+    ['ne', x + element.w, y],
+    ['sw', x, y + element.h],
+    ['se', x + element.w, y + element.h]
+  ];
+
+  return (
+    <g className="selection-box">
+      <rect x={x} y={y} width={element.w} height={element.h} fill="none" stroke="#2ffff8" strokeWidth="0.45" strokeDasharray="1 0.8" />
+      {handles.map(([handle, hx, hy]) => (
+        <rect key={handle} className={`resize-handle resize-${handle}`} x={hx - 0.85} y={hy - 0.85} width="1.7" height="1.7" fill="#2ffff8" onPointerDown={(event) => onResizeStart(event, element, rowIndex, handle)} />
+      ))}
+    </g>
+  );
+}
