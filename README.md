@@ -1,17 +1,21 @@
 # JCM-PIDS-Studio
 
-A lightweight web editor for JCM / PIDS style presets. It provides a visual canvas, layer management, property panels, validation hints, and import/export flows for project JSON, generated JavaScript, and resource-pack ZIP files.
+JCM-PIDS-Studio 是一款面向 JCM / PIDS 资源制作流程的可视化编辑器。它把画布编辑、图层管理、属性配置、校验提示和资源导出整合在同一个工作台中，适合用于项目初始化、样式调整和资源包生成。
 
-## Quick Start
+## 产品概述
+
+JCM-PIDS-Studio 面向需要快速搭建和维护 PIDS 视觉资源的工作流。它支持在画布中直接编辑元素位置、尺寸与层级，并能同步生成项目 JSON、JavaScript 输出和资源包文件。
+
+## 安装与启动
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Open the Vite URL shown in the terminal, usually `http://localhost:5173/`.
+启动后，请打开终端中显示的 Vite 地址，通常是 `http://localhost:5173/`。
 
-## Scripts
+## 常用命令
 
 ```bash
 pnpm dev
@@ -21,48 +25,45 @@ pnpm build
 pnpm preview
 ```
 
-## What This Editor Supports
+## 核心功能
 
-- Direct canvas editing for element position, size, and stacking order.
-- Layer visibility, lock, delete, duplicate, and drag-to-reorder actions.
-- Text, rect, texture, and line elements.
-- Repeat row templates for row-based layouts.
-- Snap-to-grid, arrow-key nudging, zoom, and drag interactions.
-- Mock data switching for previewing different station and arrival scenarios.
-- Project JSON import and export.
-- Round-tripping project metadata from generated JavaScript.
-- `joban_custom_resources.json` import and resource-pack ZIP export.
-- Validation for bounds, colors, texture IDs, template constraints, and export compatibility.
+- 画布编辑：支持元素位置、尺寸、层级与拖拽调整。
+- 图层管理：支持显示、隐藏、锁定、删除、复制和排序。
+- 元素类型：支持文本、矩形、贴图和线段。
+- 模板编辑：支持 repeat row template，用于行模板场景。
+- 交互辅助：支持 snap-to-grid、箭头微调、缩放和拖拽。
+- 场景预览：内置多种 Mock Data 场景，便于检查不同显示状态。
+- 校验提示：提供边界、颜色、纹理 ID、模板约束和导出兼容性检查。
 
-## Import and Export
+## 导入与导出
 
-- `Import` supports project JSON, generated JS with embedded metadata, and `joban_custom_resources.json`.
-- `Export Project` writes the current editor state as project JSON.
-- `Export JS` generates the JCM script output.
-- `Export Resources` writes `joban_custom_resources.json`.
-- `Export ZIP` bundles the script, resource JSON, project metadata, `pack.mcmeta`, and placeholder textures into one archive.
+- `Import` 支持项目 JSON、带嵌入元数据的生成 JS，以及 `joban_custom_resources.json`。
+- `Export Project` 导出当前编辑状态的项目 JSON。
+- `Export JS` 导出可直接用于 JCM 的脚本文件。
+- `Export Resources` 导出 `joban_custom_resources.json`。
+- `Export ZIP` 打包脚本、资源 JSON、项目元数据、`pack.mcmeta` 和占位纹理文件。
 
-## Current Notes
+## 发布说明
 
-- The canvas is SVG-based to keep the editor small and easy to iterate on.
-- `Route Chip` is currently paused, so it does not appear in the component library or participate in the current editing flow.
-- Exported ZIP files include placeholder `pixel.png` and `circle.png` textures. Replace them with production assets when needed.
+- 当前版本采用 SVG 画布实现，便于快速编辑和稳定发布。
+- `Route Chip` 已暂停，不会出现在组件库中，也不会参与当前编辑流程。
+- 导出的 ZIP 中包含占位 `pixel.png` 和 `circle.png`，正式交付时请替换为实际资源。
 
-## Project Layout
+## 目录结构
 
-- `src/App.tsx` - application entry and interaction orchestration.
-- `src/components/` - layout, canvas, panels, and shared UI.
-- `src/canvas/` - canvas rendering and resize logic.
-- `src/editor/` - import/export, validation, codegen, and binding resolution.
-- `src/schema/` - project normalization and parsing.
-- `src/store/` - editor state management.
-- `src/data/` - mock data.
-- `src/__tests__/` - tests.
+- `src/App.tsx`：应用入口与交互编排。
+- `src/components/`：布局、画布、面板与通用 UI。
+- `src/canvas/`：画布渲染与缩放逻辑。
+- `src/editor/`：导入导出、校验、代码生成与绑定解析。
+- `src/schema/`：项目结构归一化与解析。
+- `src/store/`：编辑器状态管理。
+- `src/data/`：Mock 数据。
+- `src/__tests__/`：测试。
 
-## Verification
+## 验证
 
 ```bash
 pnpm build
 ```
 
-If you continue changing behavior, run `pnpm typecheck` first and add tests where they provide value.
+如需继续修改功能，建议先执行 `pnpm typecheck`，再补充必要测试。
