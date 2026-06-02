@@ -14,7 +14,7 @@ import type {
   TextureAssetUpdate
 } from '../types';
 
-const STORAGE_KEY = 'js-pids-visual-editor-mvp-project-v4';
+const STORAGE_KEY = 'jcm-pids-studio-project-v1';
 export const DEFAULT_CANVAS_ZOOM = 8;
 export const MIN_CANVAS_ZOOM = 2;
 export const MAX_CANVAS_ZOOM = 16;

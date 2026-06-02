@@ -58,7 +58,7 @@ export function TopToolbar({
       <div className="brand">
         <div className="window-dots"><span /><span /><span /></div>
         <div className="app-icon">JP</div>
-        <strong>JS PIDS Visual Editor</strong>
+        <strong>JCM-PIDS-Studio</strong>
         <span className="badge">v0.1</span>
       </div>
       <div className="toolbar-group">

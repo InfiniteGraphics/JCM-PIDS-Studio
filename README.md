@@ -1,4 +1,4 @@
-# JS PIDS Visual Editor MVP
+# JCM-PIDS-Studio
 
 A lightweight web editor for JCM / PIDS style presets. It provides a visual canvas, layer management, property panels, validation hints, and import/export flows for project JSON, generated JavaScript, and resource-pack ZIP files.
 
@@ -21,7 +21,7 @@ pnpm build
 pnpm preview
 ```
 
-## What This MVP Supports
+## What This Editor Supports
 
 - Direct canvas editing for element position, size, and stacking order.
 - Layer visibility, lock, delete, duplicate, and drag-to-reorder actions.
@@ -44,7 +44,7 @@ pnpm preview
 
 ## Current Notes
 
-- The canvas is SVG-based to keep the MVP small and easy to iterate on.
+- The canvas is SVG-based to keep the editor small and easy to iterate on.
 - `Route Chip` is currently paused, so it does not appear in the component library or participate in the current editing flow.
 - Exported ZIP files include placeholder `pixel.png` and `circle.png` textures. Replace them with production assets when needed.
 
