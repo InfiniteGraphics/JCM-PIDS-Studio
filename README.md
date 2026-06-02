@@ -1,69 +1,112 @@
+
 # JCM-PIDS-Studio
 
-JCM-PIDS-Studio 是一款面向 JCM / PIDS 资源制作流程的可视化编辑器。它把画布编辑、图层管理、属性配置、校验提示和资源导出整合在同一个工作台中，适合用于项目初始化、样式调整和资源包生成。
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Vite](https://img.shields.io/badge/built%20with-Vite-646CFF.svg?style=flat&logo=vite)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/frontend-React%2019-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
 
-## 产品概述
+JCM-PIDS-Studio is a professional, visual workbench and WYSIWYG layout editor tailored for the **Joban Custom Map (JCM) Passenger Information Display System (PIDS)** resource pipeline. 
 
-JCM-PIDS-Studio 面向需要快速搭建和维护 PIDS 视觉资源的工作流。它支持在画布中直接编辑元素位置、尺寸与层级，并能同步生成项目 JSON、JavaScript 输出和资源包文件。
+It bridges the gap between layout design and script execution by embedding real-time canvas configuration, dynamic data binding previews, real-time validation compliance, and automated resource compilation into a single workflow.
 
-## 安装与启动
+---
+
+## 🚀 User Guide
+
+This section covers everything you need to know to create, preview, and bundle PIDS layouts for your custom resource packs.
+
+### Key Features
+- **Visual Grid Canvas Layouts:** Direct WYSIWYG positioning, scaling, and depth configuration for texts, bounding blocks, decorative lines, and canvas elements.
+- **Dynamic Data Binding Previews:** Bind fields natively to train arrival telemetry (`arrival.destination()`, `computed.etaText`, etc.) and simulate complex environments directly within the browser.
+- **Multi-Scenario Mocking:** Instantly toggle between operational environments (e.g., normal timetables, custom text overrides, long destinations, empty lists) to stress-test layout constraints.
+- **Automated Compilation:** Instantly exports executable JCM JavaScript wrappers, customized asset resource sheets, or ready-to-use Minecraft resource pack `.zip` files.
+
+### Working with the Studio
+
+#### 1. Designing Your Board
+- Use the **Components** sidebar to drop objects onto the viewport. Choose between **Global Layers** (persistent elements like background blocks and station clocks) or the **Repeat Row Template** (which loops through active train schedules dynamically).
+- Use **Snapping Guides** and arrow-key nudges to optimize your boundaries.
+
+#### 2. Mocking Data Environments
+The studio includes a reactive runtime context built into the top control strip. You can switch between active test profiles:
+- `Normal`: Regular commuter schedule loops.
+- `Custom Message`: High-priority service interruption overlays.
+- `Long Destination`: Text overflow stress tests (e.g., scales down long string inputs).
+- `Terminating` / `Hidden Rows`: Non-standard track operational states.
+
+#### 3. Import and Export Schemes
+- **Export Project:** Saves your raw project metadata profile (`.json`) so you can resume editing later.
+- **Export JS / Resources:** Extracts standalone scripts and mappings compatible with the standard JCM runtime architecture.
+- **Export ZIP (Recommended):** Generates a complete, ready-to-load Minecraft resource pack bundle containing structural assets, script hierarchies, `pack.mcmeta` templates, and placeholder manifests.
+
+---
+
+## 🛠️ Developer & Contributor Guide
+
+This section details the system architecture, internal modules, and development workflow for programmers contributing to the studio project.
+
+### Core Architecture
+The codebase is structured strictly around linear data management, an SVG-backed workspace editor, and JCM specification wrappers:
+
+```text
+src/
+├── canvas/          # SVG UI calculations, scaling matrices, and handle transforms
+├── components/      # UI hierarchy (split sidebars, panels, toolbar clusters)
+├── data/            # Timetable simulators and diagnostic context factories
+├── editor/          # JCM validation pipelines, code generation engines, and zip builders
+├── schema/          # Data migrations (v2 -> v3 parser) and schema validators
+└── store/           # Global state orchestrators, history states (Undo/Redo stack)
+
+```
+
+### Script Generation Architecture
+
+When generating standalone client scripts, the system takes the abstract state model (`PidsProject`) and outputs optimized, JCM v2.2 specification compliant API pipelines:
+
+* It loops absolute elements and compiles chained `Text.create(...)` or `Texture.create(...)` call-stacks.
+* It embeds a packed base64 string of the editor's data model right into the script comments (`@js-pids-editor-project:...`), allowing full, lossless project recovery when users import a compiled file back into the app.
+
+### Local Development Setup
+
+#### Prerequisites
+
+Make sure you have Node.js (v20+) and **pnpm** installed on your machine.
+
+#### Installation
+
+Clone the repository and install all developer environment dependencies:
 
 ```bash
+git clone [https://github.com/infinitegraphics/jcm-pids-studio.git](https://github.com/infinitegraphics/jcm-pids-studio.git)
+cd jcm-pids-studio
 pnpm install
-pnpm dev
+
 ```
 
-启动后，请打开终端中显示的 Vite 地址，通常是 `http://localhost:5173/`。
+#### Dev Server
 
-## 常用命令
+Spin up the local Vite-backed asset pipelines:
 
 ```bash
 pnpm dev
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm preview
+
 ```
 
-## 核心功能
+Navigate to the local address displayed in your terminal (typically `http://localhost:5173/`).
 
-- 画布编辑：支持元素位置、尺寸、层级与拖拽调整。
-- 图层管理：支持显示、隐藏、锁定、删除、复制和排序。
-- 元素类型：支持文本、矩形、贴图和线段。
-- 模板编辑：支持 repeat row template，用于行模板场景。
-- 交互辅助：支持 snap-to-grid、箭头微调、缩放和拖拽。
-- 场景预览：内置多种 Mock Data 场景，便于检查不同显示状态。
-- 校验提示：提供边界、颜色、纹理 ID、模板约束和导出兼容性检查。
+### Project Tasks
 
-## 导入与导出
+| Command | Action |
+| --- | --- |
+| `pnpm dev` | Starts the interactive dev server |
+| `pnpm typecheck` | Runs the TypeScript compiler check (`tsc --noEmit`) |
+| `pnpm test` | Runs the Vitest pipeline suite |
+| `pnpm build` | Compiles a production-ready web bundle to the `dist/` directory |
+| `pnpm preview` | Tests your production build locally |
 
-- `Import` 支持项目 JSON、带嵌入元数据的生成 JS，以及 `joban_custom_resources.json`。
-- `Export Project` 导出当前编辑状态的项目 JSON。
-- `Export JS` 导出可直接用于 JCM 的脚本文件。
-- `Export Resources` 导出 `joban_custom_resources.json`。
-- `Export ZIP` 打包脚本、资源 JSON、项目元数据、`pack.mcmeta` 和占位纹理文件。
+---
 
-## 发布说明
+## 📝 License
 
-- 当前版本采用 SVG 画布实现，便于快速编辑和稳定发布。
-- `Route Chip` 已暂停，不会出现在组件库中，也不会参与当前编辑流程。
-- 导出的 ZIP 中包含占位 `pixel.png` 和 `circle.png`，正式交付时请替换为实际资源。
+This project is licensed under the MIT License. See the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
 
-## 目录结构
-
-- `src/App.tsx`：应用入口与交互编排。
-- `src/components/`：布局、画布、面板与通用 UI。
-- `src/canvas/`：画布渲染与缩放逻辑。
-- `src/editor/`：导入导出、校验、代码生成与绑定解析。
-- `src/schema/`：项目结构归一化与解析。
-- `src/store/`：编辑器状态管理。
-- `src/data/`：Mock 数据。
-- `src/__tests__/`：测试。
-
-## 验证
-
-```bash
-pnpm build
-```
-
-如需继续修改功能，建议先执行 `pnpm typecheck`，再补充必要测试。
