@@ -419,12 +419,16 @@ pre {
 
 .canvas-stage {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
   overflow: auto;
   min-height: 0;
   padding: 24px 24px 28px;
+}
+
+.canvas-stage-inner {
+  min-width: max(100%, var(--canvas-frame-width));
+  min-height: max(100%, var(--canvas-frame-height));
+  display: grid;
+  place-items: center;
 }
 
 .canvas-frame {
