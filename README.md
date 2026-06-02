@@ -5,7 +5,7 @@
 [![Vite](https://img.shields.io/badge/built%20with-Vite-646CFF.svg?style=flat&logo=vite)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/frontend-React%2019-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
 
-JCM-PIDS-Studio is a professional, visual workbench and WYSIWYG layout editor tailored for the **Joban Custom Map (JCM) Passenger Information Display System (PIDS)** resource pipeline. 
+JCM-PIDS-Studio is a professional, visual workbench and WYSIWYG layout editor tailored for the **Joban Client Mod (JCM) Passenger Information Display System (PIDS)** resource pipeline. 
 
 It bridges the gap between layout design and script execution by embedding real-time canvas configuration, dynamic data binding previews, real-time validation compliance, and automated resource compilation into a single workflow.
 
