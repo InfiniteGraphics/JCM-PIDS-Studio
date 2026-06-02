@@ -968,6 +968,11 @@ pre {
   cursor: nwse-resize;
 }
 
+.line-handle {
+  pointer-events: all;
+  cursor: move;
+}
+
 .resize-ne,
 .resize-sw {
   cursor: nesw-resize;

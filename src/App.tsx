@@ -4,7 +4,7 @@ import { LeftSidebar, SCENARIOS, TopToolbar } from './components/layout';
 import { StatusNotice, Tabs } from './components/common';
 import { Inspector, ProjectInspector, TextureAssetsPanel, ValidationPanel } from './components/panels';
 import { clamp, getRenderedElements, round } from './canvas/rendering';
-import { resizeFromHandle, type ResizeHandle } from './canvas/resize';
+import { resizeFromHandle, type AnyResizeHandle } from './canvas/resize';
 import { safePresetId, uid } from './editor/defaultProject';
 import { importProjectText } from './editor/importExport';
 import { issueSummary } from './editor/validation';
@@ -23,7 +23,7 @@ export default function App() {
   const [dragLayerId, setDragLayerId] = useState<string | null>(null);
   const [targetGroupId, setTargetGroupId] = useState<string>('root');
   const [dragState, setDragState] = useState<{ id: string; rowIndex?: number; offsetX: number; offsetY: number } | null>(null);
-  const [resizeState, setResizeState] = useState<{ id: string; rowIndex?: number; handle: ResizeHandle; startX: number; startY: number; start: PidsElement } | null>(null);
+  const [resizeState, setResizeState] = useState<{ id: string; rowIndex?: number; handle: AnyResizeHandle; startX: number; startY: number; start: PidsElement } | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error' | 'info'; text: string } | null>(null);
   const templateGroupId = 'rowTemplate';
 
@@ -309,7 +309,7 @@ export default function App() {
     });
   }
 
-  function startResize(event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) {
+  function startResize(event: React.PointerEvent<SVGElement>, element: PidsElement, rowIndex: number | undefined, handle: AnyResizeHandle) {
     event.stopPropagation();
     const point = pointerToCanvas(event);
     store.beginInteraction();

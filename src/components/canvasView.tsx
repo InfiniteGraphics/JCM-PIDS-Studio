@@ -3,7 +3,7 @@ import { resolveElementText } from '../editor/bindings';
 import type { GuideLine, MockRuntime, PidsElement, PidsProject } from '../types';
 import { fitPreviewText } from '../canvas/rendering';
 import type { RenderedElement } from '../canvas/rendering';
-import type { ResizeHandle } from '../canvas/resize';
+import type { AnyResizeHandle, ResizeHandle } from '../canvas/resize';
 import { Rulers } from './common';
 
 export function CanvasWorkbench({
@@ -43,7 +43,7 @@ export function CanvasWorkbench({
   onPointerUp: () => void;
   onClearSelection: () => void;
   onElementPointerDown: (event: React.PointerEvent<SVGElement>, rendered: RenderedElement) => void;
-  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+  onResizeStart: (event: React.PointerEvent<SVGElement>, element: PidsElement, rowIndex: number | undefined, handle: AnyResizeHandle) => void;
 }) {
   return (
     <section className="canvas-workbench">
@@ -179,7 +179,7 @@ function ElementView({
   assetUrls: Record<string, string>;
   selected: boolean;
   onPointerDown: (event: React.PointerEvent<SVGElement>) => void;
-  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+  onResizeStart: (event: React.PointerEvent<SVGElement>, element: PidsElement, rowIndex: number | undefined, handle: AnyResizeHandle) => void;
 }) {
   const { element, x, y, rowIndex } = rendered;
   const previewRowIndex = typeof rowIndex === 'number' && runtime.rows > 0 ? rowIndex % runtime.rows : rowIndex;
@@ -213,7 +213,7 @@ function ElementView({
     return (
       <g onPointerDown={onPointerDown} className="canvas-element">
         <line x1={x} y1={y} x2={x + element.w} y2={y + element.h} stroke={element.stroke} strokeWidth={element.strokeWidth} />
-        {selected && <SelectionBox element={{ ...element, h: Math.max(element.h, 1) }} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
+        {selected && <LineSelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
       </g>
     );
   }
@@ -250,7 +250,7 @@ function SelectionBox({
   y: number;
   rowIndex?: number;
   isTemplateInstance: boolean;
-  onResizeStart: (event: React.PointerEvent<SVGRectElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
+  onResizeStart: (event: React.PointerEvent<SVGElement>, element: PidsElement, rowIndex: number | undefined, handle: ResizeHandle) => void;
 }) {
   const handles: Array<[ResizeHandle, number, number]> = [
     ['nw', x, y],
@@ -268,6 +268,54 @@ function SelectionBox({
       {handles.map(([handle, hx, hy]) => (
         <rect key={handle} className={`resize-handle resize-${handle}`} x={hx - 0.85} y={hy - 0.85} width="1.7" height="1.7" fill="#2ffff8" onPointerDown={(event) => onResizeStart(event, element, rowIndex, handle)} />
       ))}
+    </g>
+  );
+}
+
+function LineSelectionBox({
+  element,
+  x,
+  y,
+  rowIndex,
+  isTemplateInstance,
+  onResizeStart
+}: {
+  element: Extract<PidsElement, { kind: 'line' }>;
+  x: number;
+  y: number;
+  rowIndex?: number;
+  isTemplateInstance: boolean;
+  onResizeStart: (event: React.PointerEvent<SVGElement>, element: PidsElement, rowIndex: number | undefined, handle: AnyResizeHandle) => void;
+}) {
+  const endX = x + element.w;
+  const endY = y + element.h;
+
+  return (
+    <g className="selection-box">
+      <line x1={x} y1={y} x2={endX} y2={endY} stroke="#2ffff8" strokeWidth={Math.max(element.strokeWidth + 0.6, 1.2)} strokeDasharray="1 0.8" opacity="0.9" />
+      {isTemplateInstance && (
+        <text x={Math.min(x, endX)} y={Math.min(y, endY) - 1.2} className="template-badge">row {typeof rowIndex === 'number' ? rowIndex + 1 : ''} template</text>
+      )}
+      <circle
+        className="line-handle line-handle-start"
+        cx={x}
+        cy={y}
+        r="1.2"
+        fill="#2ffff8"
+        stroke="#08111f"
+        strokeWidth="0.4"
+        onPointerDown={(event) => onResizeStart(event, element, rowIndex, 'start')}
+      />
+      <circle
+        className="line-handle line-handle-end"
+        cx={endX}
+        cy={endY}
+        r="1.2"
+        fill="#2ffff8"
+        stroke="#08111f"
+        strokeWidth="0.4"
+        onPointerDown={(event) => onResizeStart(event, element, rowIndex, 'end')}
+      />
     </g>
   );
 }

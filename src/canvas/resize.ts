@@ -2,10 +2,12 @@ import type { PidsElement } from '../types';
 import { round } from './rendering';
 
 export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se';
+export type LineResizeHandle = 'start' | 'end';
+export type AnyResizeHandle = ResizeHandle | LineResizeHandle;
 
 export function resizeFromHandle(
   start: PidsElement,
-  handle: ResizeHandle,
+  handle: AnyResizeHandle,
   dx: number,
   dy: number,
   gridSize: number,
@@ -13,8 +15,12 @@ export function resizeFromHandle(
 ): Partial<PidsElement> {
   const snapValue = (value: number) => (shouldSnap ? Math.round(value / gridSize) * gridSize : round(value));
 
+  if (start.kind === 'line') {
+    return resizeLineFromHandle(start, handle, dx, dy, snapValue);
+  }
+
   if (start.kind === 'texture' && start.preserveAspectRatio !== false) {
-    return resizeTextureWithAspectRatio(start, handle, dx, dy, snapValue);
+    return resizeTextureWithAspectRatio(start, handle as ResizeHandle, dx, dy, snapValue);
   }
 
   const patch: Partial<PidsElement> = {};
@@ -35,6 +41,34 @@ export function resizeFromHandle(
   }
 
   return patch;
+}
+
+function resizeLineFromHandle(
+  start: Extract<PidsElement, { kind: 'line' }>,
+  handle: AnyResizeHandle,
+  dx: number,
+  dy: number,
+  snapValue: (value: number) => number
+): Partial<PidsElement> {
+  if (handle === 'start') {
+    const nextX = snapValue(start.x + dx);
+    const nextY = snapValue(start.y + dy);
+    return {
+      x: nextX,
+      y: nextY,
+      w: snapValue(start.x + start.w - nextX),
+      h: snapValue(start.y + start.h - nextY)
+    };
+  }
+
+  if (handle === 'end') {
+    return {
+      w: snapValue(start.w + dx),
+      h: snapValue(start.h + dy)
+    };
+  }
+
+  return {};
 }
 
 function resizeTextureWithAspectRatio(
