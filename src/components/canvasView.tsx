@@ -1,5 +1,5 @@
 import type React from 'react';
-import { getRouteFill, resolveElementText } from '../editor/bindings';
+import { resolveElementText } from '../editor/bindings';
 import type { GuideLine, MockRuntime, PidsElement, PidsProject } from '../types';
 import { fitPreviewText } from '../canvas/rendering';
 import type { RenderedElement } from '../canvas/rendering';
@@ -219,15 +219,8 @@ function ElementView({
   }
 
   if (element.kind === 'circle') {
-    const label = resolveElementText(element, context);
-    if (!label && element.condition === 'arrival') return null;
-    return (
-      <g onPointerDown={onPointerDown} className="canvas-element">
-        <circle cx={x + element.w / 2} cy={y + element.h / 2} r={Math.min(element.w, element.h) / 2} fill={getRouteFill(element, context)} stroke={element.stroke ?? '#fff'} strokeWidth="0.35" />
-        <text x={x + element.w / 2} y={y + element.h / 2 + element.h * 0.23} textAnchor="middle" fill={element.textColor ?? '#ffffff'} fontWeight="700" fontSize={element.h * 0.68}>{label}</text>
-        {selected && <SelectionBox element={element} x={x} y={y} rowIndex={rowIndex} isTemplateInstance={isTemplateInstance} onResizeStart={onResizeStart} />}
-      </g>
-    );
+    // Route Chip is temporarily disabled until its editor/export bugs are fixed.
+    return null;
   }
 
   const text = resolveElementText(element, context);

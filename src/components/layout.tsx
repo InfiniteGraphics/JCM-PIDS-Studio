@@ -146,13 +146,14 @@ export function LeftSidebar({
           <ComponentButton icon="T" label="Text" onClick={() => onAddComponent('text', targetGroupId)} />
           <ComponentButton icon="R" label="Rect" onClick={() => onAddComponent('rect', targetGroupId)} />
           <ComponentButton icon="I" label="Texture" onClick={() => onAddComponent('texture', targetGroupId)} />
-          <ComponentButton icon="C" label="Route Chip" onClick={() => onAddComponent('circle', targetGroupId)} />
+          {/* Route Chip is temporarily disabled until its editor/export bugs are fixed. */}
+          {/* <ComponentButton icon="C" label="Route Chip" onClick={() => onAddComponent('circle', targetGroupId)} /> */}
           <ComponentButton icon="L" label="Line" onClick={() => onAddComponent('line', targetGroupId)} />
           <div className="component-grid-label">Repeat row template</div>
           <ComponentButton icon="T" label="Row Text" onClick={() => onAddComponent('text', 'rowTemplate')} />
           <ComponentButton icon="R" label="Row Rect" onClick={() => onAddComponent('rect', 'rowTemplate')} />
           <ComponentButton icon="I" label="Row Texture" onClick={() => onAddComponent('texture', 'rowTemplate')} />
-          <ComponentButton icon="C" label="Row Route Chip" onClick={() => onAddComponent('circle', 'rowTemplate')} />
+          {/* <ComponentButton icon="C" label="Row Route Chip" onClick={() => onAddComponent('circle', 'rowTemplate')} /> */}
           <ComponentButton icon="L" label="Row Line" onClick={() => onAddComponent('line', 'rowTemplate')} />
         </section>
       )}

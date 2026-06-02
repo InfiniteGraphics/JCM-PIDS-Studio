@@ -240,7 +240,8 @@ function generateElement(element: PidsElement, mode: 'absolute' | 'row') {
     case 'line':
       return generateLine(element, mode);
     case 'circle':
-      return generateCircle(element, mode);
+      // Route Chip is temporarily disabled until its editor/export bugs are fixed.
+      return '';
     default:
       return '';
   }

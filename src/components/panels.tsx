@@ -146,7 +146,8 @@ export function Inspector({
       {element.kind === 'text' && <TextInspector element={element} onChange={onChange as (patch: Partial<TextElement>) => void} />}
       {element.kind === 'rect' && <RectInspector element={element} onChange={onChange} />}
       {element.kind === 'texture' && <TextureInspector element={element} assets={project.assets} onAssetChange={onTextureAssetChange} onChange={onChange as (patch: Partial<TextureElement>) => void} />}
-      {element.kind === 'circle' && <CircleInspector element={element} onChange={onChange} />}
+      {/* Route Chip inspector is temporarily disabled until its editor/export bugs are fixed. */}
+      {/* {element.kind === 'circle' && <CircleInspector element={element} onChange={onChange} />} */}
       {element.kind === 'line' && <LineInspector element={element} onChange={onChange} />}
       <div className="button-row"><button onClick={onMoveDown}>Send Back</button><button onClick={onMoveUp}>Bring Front</button></div>
       <div className="button-row"><button onClick={onDuplicate}>Duplicate</button><button className="danger" onClick={onDelete}>Delete</button></div>

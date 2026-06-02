@@ -198,33 +198,33 @@ const demoElements: PidsElement[] = [
       gap: 0
     }
   },
-  {
-    id: 'route_chip_template',
-    kind: 'circle',
-    name: 'Route Chip',
-    visible: true,
-    parentId: 'rowTemplate',
-    x: 10,
-    y: 0,
-    w: 9,
-    h: 9,
-    z: 11,
-    fill: '#1769d7',
-    stroke: '#ffffff',
-    text: 'A',
-    textColor: '#ffffff',
-    rowIndex: 0,
-    binding: 'arrival.routeNumber()',
-    condition: 'arrival',
-    textureId: 'jsblock:textures/block/pids/circle.png'
-    ,
-    repeat: {
-      enabled: true,
-      count: 4,
-      direction: 'vertical',
-      gap: 0
-    }
-  },
+  // Route Chip is temporarily disabled until its editor/export bugs are fixed.
+  // {
+  //   id: 'route_chip_template',
+  //   kind: 'circle',
+  //   name: 'Route Chip',
+  //   visible: true,
+  //   parentId: 'rowTemplate',
+  //   x: 10,
+  //   y: 0,
+  //   w: 9,
+  //   h: 9,
+  //   z: 11,
+  //   fill: '#1769d7',
+  //   stroke: '#ffffff',
+  //   text: 'A',
+  //   textColor: '#ffffff',
+  //   rowIndex: 0,
+  //   binding: 'arrival.routeNumber()',
+  //   condition: 'arrival',
+  //   textureId: 'jsblock:textures/block/pids/circle.png',
+  //   repeat: {
+  //     enabled: true,
+  //     count: 4,
+  //     direction: 'vertical',
+  //     gap: 0
+  //   }
+  // },
   {
     id: 'destination_template',
     kind: 'text',
