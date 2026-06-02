@@ -1,60 +1,68 @@
 # JS PIDS Visual Editor MVP
 
-A Web-first MVP for visually designing JCM Scripted PIDS presets and generating JavaScript/resource-pack outputs.
+A lightweight web editor for JCM / PIDS style presets. It provides a visual canvas, layer management, property panels, validation hints, and import/export flows for project JSON, generated JavaScript, and resource-pack ZIP files.
 
-## Run with PNPM
+## Quick Start
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Then open the Vite URL, usually `http://localhost:5173/`.
+Open the Vite URL shown in the terminal, usually `http://localhost:5173/`.
 
-## Build
+## Scripts
 
 ```bash
+pnpm dev
+pnpm typecheck
+pnpm test
 pnpm build
 pnpm preview
 ```
 
-## Implemented in this version
+## What This MVP Supports
 
-### P0
+- Direct canvas editing for element position, size, and stacking order.
+- Layer visibility, lock, delete, duplicate, and drag-to-reorder actions.
+- Text, rect, texture, and line elements.
+- Repeat row templates for row-based layouts.
+- Snap-to-grid, arrow-key nudging, zoom, and drag interactions.
+- Mock data switching for previewing different station and arrival scenarios.
+- Project JSON import and export.
+- Round-tripping project metadata from generated JavaScript.
+- `joban_custom_resources.json` import and resource-pack ZIP export.
+- Validation for bounds, colors, texture IDs, template constraints, and export compatibility.
 
-- Real Repeat Rows template model instead of hard-coded static rows.
-- Data binding coverage for PIDS fields, ArrivalEntry fields, and computed fields.
-- JCM-style JavaScript generator using `create(ctx, state, pids)`, `render(ctx, state, pids)`, and `dispose(ctx, state, pids)`.
-- Codegen support for `Text.create()`, `Texture.create()`, route chips, `pids.rows`, `pids.arrivals().get(i)`, `pids.getCustomMessage(i)`, `pids.isRowHidden(i)`, and `pids.isPlatformNumberHidden()`.
-- Custom message / hide platform / hide arrival behavior switches.
-- Validation panel for bounds, colors, texture ids, row templates, and export settings.
-- `joban_custom_resources.json` generation using `pids_images[].scriptFiles`.
+## Import and Export
 
-### P1
+- `Import` supports project JSON, generated JS with embedded metadata, and `joban_custom_resources.json`.
+- `Export Project` writes the current editor state as project JSON.
+- `Export JS` generates the JCM script output.
+- `Export Resources` writes `joban_custom_resources.json`.
+- `Export ZIP` bundles the script, resource JSON, project metadata, `pack.mcmeta`, and placeholder textures into one archive.
 
-- Layer delete / hide / lock.
-- Drag-to-reorder layers within a group.
-- Duplicate layers.
-- Resize handles on selected elements.
-- Snap-to-grid and arrow-key nudging.
-- Mock scenarios: normal, long destination, custom message, hidden row, hide platform, empty arrivals, terminating train.
-- Project JSON import/export.
-- Basic import of `joban_custom_resources.json` into a new editable project shell.
-- Resource-pack ZIP export with script, `joban_custom_resources.json`, project metadata JSON, `pack.mcmeta`, and placeholder `pixel.png` / `circle.png` textures.
+## Current Notes
 
-## Notes
+- The canvas is SVG-based to keep the MVP small and easy to iterate on.
+- `Route Chip` is currently paused, so it does not appear in the component library or participate in the current editing flow.
+- Exported ZIP files include placeholder `pixel.png` and `circle.png` textures. Replace them with production assets when needed.
 
-- The canvas is still SVG-based to keep the MVP light. A future high-fidelity editor can migrate this surface to Konva/Fabric without changing the core schema/codegen model.
-- Existing arbitrary handwritten JS cannot be fully reverse-engineered. This version supports round-tripping project JSON, and generated JS includes embedded project metadata for future import support.
-- Placeholder texture files are included in exported ZIPs. Replace them with real texture assets in a production resource pack.
+## Project Layout
 
-## Manual JCM Smoke Test Checklist
+- `src/App.tsx` - application entry and interaction orchestration.
+- `src/components/` - layout, canvas, panels, and shared UI.
+- `src/canvas/` - canvas rendering and resize logic.
+- `src/editor/` - import/export, validation, codegen, and binding resolution.
+- `src/schema/` - project normalization and parsing.
+- `src/store/` - editor state management.
+- `src/data/` - mock data.
+- `src/__tests__/` - tests.
 
-- `rv_pids`: normal arrivals
-- `rv_pids`: custom message
-- `rv_pids`: hidden row
-- `rv_pids`: hide platform number
-- `rv_pids`: empty arrival rows
-- `lcd_pids`: normal arrivals
-- Confirm generated preset appears in JCM preset list
-- Confirm generated resource pack loads without script error
+## Verification
+
+```bash
+pnpm build
+```
+
+If you continue changing behavior, run `pnpm typecheck` first and add tests where they provide value.
